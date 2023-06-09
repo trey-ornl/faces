@@ -26,7 +26,7 @@ class DArray {
 
     ~DArray()
     {
-      if (this == first_) CHECK(hipFree(values_));
+      if (this == first_) CHECK(gpuFree(values_));
       values_ = nullptr;
       for (int i = 0; i < N; i++) strides_[i] = 0;
     }
@@ -46,7 +46,7 @@ class DArray {
     {
       that.resize(strides_[N-1]);
       const long bytes = sizeof(T)*that.size();
-      CHECK(hipMemcpy(that.data(),values_,bytes,hipMemcpyDeviceToHost));
+      CHECK(gpuMemcpy(that.data(),values_,bytes,gpuMemcpyDeviceToHost));
     }
 
     const T *data() const { return values_; }
@@ -77,8 +77,8 @@ class DArray {
     void alloc()
     {
       const long bytes = sizeof(T)*strides_[N-1];
-      CHECK(hipMalloc(const_cast<T**>(&values_),bytes));
-      CHECK(hipMemset(values_,0,bytes));
+      CHECK(gpuMalloc(const_cast<T**>(&values_),bytes));
+      CHECK(gpuMemset(values_,0,bytes));
     }
  
     template <int M, typename I, typename... Is>

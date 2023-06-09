@@ -65,8 +65,10 @@ static void compare(Faces::Double6D &ud, const double *const __restrict v, const
 
   int rank = -1;
   MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+  int pass = 0;
   if (mv < 1e-15) {
-    std::cout<<rank<<" PASS"<<std::endl;
+    pass = 1;
+    //std::cout<<rank<<" PASS"<<std::endl;
   } else {
     std::cout<<rank<<" FAIL "<<mv<<" ("<<ml[0];
     for (int i = 1; i < 6; i++) std::cout<<','<<ml[i];
@@ -95,6 +97,9 @@ static void compare(Faces::Double6D &ud, const double *const __restrict v, const
     }
 #endif
   }
+  int npass = 0;
+  MPI_Reduce(&pass,&npass,1,MPI_INT,MPI_SUM,0,MPI_COMM_WORLD);
+  if (rank == 0) std::cout<<npass<<" tasks passed correctness check"<<std::endl;
 }
 
 
@@ -113,11 +118,11 @@ int main(int argc, char *argv[])
     int lrank = MPI_PROC_NULL;
     MPI_Comm_rank(local,&lrank);
     int nd = 0;
-    CHECK(hipGetDeviceCount(&nd));
+    CHECK(gpuGetDeviceCount(&nd));
     const int target = lrank%nd;
-    CHECK(hipSetDevice(target));
+    CHECK(gpuSetDevice(target));
     int myd = -1;
-    CHECK(hipGetDevice(&myd));
+    CHECK(gpuGetDevice(&myd));
     for (int i = 0; i < size; i++) {
       MPI_Barrier(MPI_COMM_WORLD);
       if ((nd > 1) && (rank == i)) std::cout<<rank<<" with node rank "<<lrank<<" using device "<<myd<<" ("<<nd<<" devices per node) (asked for "<<target<<")"<<std::endl;
@@ -164,13 +169,14 @@ int main(int argc, char *argv[])
     {
       MPI_Barrier(MPI_COMM_WORLD);
       for (int k = 0; k < niface; k++) {
+        if (rank == 0) std::cout<<(k+1)<<": ";
         Faces faces(rank,lx,ly,lz,mx,my,mz,n);
         for (int j = 0; j <= niel; j++) {
-          hipLaunchKernelGGL(init,dim3(mx*n,my,mz),dim3(n,n),0,0,u);
-          CHECK(hipDeviceSynchronize());
+          init<<<dim3(mx*n,my,mz),dim3(n,n)>>>(u);
+          CHECK(gpuDeviceSynchronize());
           const double tstart = MPI_Wtime();
           for (int i = 0; i < nshare; i++) faces.share(u,compute);
-          CHECK(hipDeviceSynchronize());
+          CHECK(gpuDeviceSynchronize());
           const double tstop = MPI_Wtime();
           if (j > 0) t += tstop-tstart;
         }

@@ -26,7 +26,7 @@ class Faces
     MPI_Request reqr_[26],reqs_[26];
 
     static constexpr int nStreams_ = 2;
-    hipStream_t stream_[nStreams_];
+    gpuStream_t stream_[nStreams_];
 
     Double2D cornerr_, corners_;
     Double3D xer_,yer_,zer_;

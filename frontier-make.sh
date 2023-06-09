@@ -10,6 +10,7 @@ export LD=CC
 export LDFLAGS="-g -O3 -std=c++17 -Wall -L${ROCM_PATH}/lib"
 export LIBS='-lamdhip64'
 export EXE=frontier-faces
-make clean
-make -j
+#make clean
+#make -j
+make && \
 ldd "${EXE}" | grep -e mpi -e gtl
