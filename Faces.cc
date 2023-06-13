@@ -74,7 +74,7 @@ Faces::Faces(const int id, const int lx, const int ly, const int lz, const int m
   icorner_[6] = neighbor(-1,1,1);
   icorner_[7] = neighbor(1,1,1);
 
-  for (int i = 0; i < nStreams_; i++) CHECK(hipStreamCreate(stream_+i));
+  for (int i = 0; i < nStreams_; i++) CHECK(gpuStreamCreate(stream_+i));
 
   if (rank_ == 0) {
     std::cout<<"Initialized Faces: "<<mx<<" x "<<my<<" x "<<mz<<" elements of order "<<n-1<<" on "<<lx<<" x "<<ly<<" x "<<lz<<" tasks"<<std::endl;
@@ -84,7 +84,7 @@ Faces::Faces(const int id, const int lx, const int ly, const int lz, const int m
 Faces::~Faces()
 {
   for (int i = 0; i < nStreams_; i++) {
-    CHECK(hipStreamDestroy(stream_[i]));
+    CHECK(gpuStreamDestroy(stream_[i]));
     stream_[i] = 0;
   }
 }
@@ -286,7 +286,7 @@ void Faces::share(Double6D &u, const bool compute)
 
   // send in use order
 
-  CHECK(hipStreamSynchronize(stream_[0]));
+  CHECK(gpuStreamSynchronize(stream_[0]));
 
   MPI_Isend(zfs.data(0,0,0,0,0),nface_[2],MPI_DOUBLE,iface_[4],tag,MPI_COMM_WORLD,reqs_+0);
   MPI_Isend(zfs.data(0,0,0,0,1),nface_[2],MPI_DOUBLE,iface_[5],tag,MPI_COMM_WORLD,reqs_+1);
@@ -455,5 +455,5 @@ void Faces::share(Double6D &u, const bool compute)
   // finish sends
 
   MPI_Waitall(26,reqs_,MPI_STATUSES_IGNORE);
-  CHECK(hipStreamSynchronize(stream_[0]));
+  CHECK(gpuStreamSynchronize(stream_[0]));
 }

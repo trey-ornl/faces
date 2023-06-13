@@ -20,7 +20,32 @@
 #define gpuMemset hipMemset
 #define gpuSetDevice hipSetDevice
 #define gpuStream_t hipStream_t
+#define gpuStreamCreate hipStreamCreate
+#define gpuStreamDestroy hipStreamDestroy
+#define gpuStreamSynchronize hipStreamSynchronize
 #define gpuSuccess hipSuccess
+#define WARPSIZE warpSize
+#endif
+
+#ifdef __NVCOMPILER
+#define gpuDeviceSynchronize cudaDeviceSynchronize
+#define gpuError_t cudaError_t
+#define gpuFree cudaFree
+#define gpuGetDevice cudaGetDevice
+#define gpuGetDeviceCount cudaGetDeviceCount
+#define gpuGetErrorName cudaGetErrorName
+#define gpuGetErrorString cudaGetErrorString
+#define gpuMalloc cudaMalloc
+#define gpuMemcpy cudaMemcpy
+#define gpuMemcpyDeviceToHost cudaMemcpyDeviceToHost
+#define gpuMemset cudaMemset
+#define gpuSetDevice cudaSetDevice
+#define gpuStream_t cudaStream_t
+#define gpuStreamCreate cudaStreamCreate
+#define gpuStreamDestroy cudaStreamDestroy
+#define gpuStreamSynchronize cudaStreamSynchronize
+#define gpuSuccess cudaSuccess
+#define WARPSIZE 32
 #endif
 
 static void checkGPU(const gpuError_t err, const char *const file, const int line)
@@ -35,8 +60,8 @@ static void checkGPU(const gpuError_t err, const char *const file, const int lin
 
 #if defined(__HIPCC__) || defined(__CUDACC__)
 
-static constexpr int gpuMaxThreads = warpSize;
-static constexpr int gpuMinThreads = warpSize;
+static constexpr int gpuMaxThreads = WARPSIZE;
+static constexpr int gpuMinThreads = WARPSIZE;
 
 template <typename F>
 __global__ __launch_bounds__(gpuMinThreads) void gpuRun(F f)
