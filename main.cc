@@ -20,6 +20,7 @@ __global__ static void init(Faces::Double6D v)
 
 static void ainit(Array<double,6> &v)
 {
+#pragma omp parallel for collapse(6)
   for (int jz = 0; jz < v.size(5); jz++) {
     for (int jy = 0; jy < v.size(4); jy++) {
       for (int jx = 0; jx < v.size(3); jx++) {
@@ -41,6 +42,7 @@ static void compare(Faces::Double6D &ud, const double *const __restrict v, const
   ud.copy(u);
   std::array<int,6> ml{0,0,0,0,0,0};
   double mv = 0;
+#pragma omp parallel for collapse(6)
   for (int jz = 0; jz < nu[5]; jz++) {
     for (int jy = 0; jy < nu[4]; jy++) {
       for (int jx = 0; jx < nu[3]; jx++) {

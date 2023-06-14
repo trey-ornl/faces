@@ -51,7 +51,7 @@
 static void checkGPU(const gpuError_t err, const char *const file, const int line)
 {
   if (err == gpuSuccess) return;
-  fprintf(stderr,"HIP ERROR AT LINE %d OF FILE '%s': %s %s\n",line,file,gpuGetErrorName(err),gpuGetErrorString(err));
+  fprintf(stderr,"GPU ERROR AT LINE %d OF FILE '%s': %s %s\n",line,file,gpuGetErrorName(err),gpuGetErrorString(err));
   fflush(stderr);
   exit(err);
 }

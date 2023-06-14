@@ -1,6 +1,7 @@
 #include <cassert>
 #include <iostream>
 #include <mpi.h>
+#include <omp.h>
 
 #include "Mugs.h"
 
@@ -64,7 +65,7 @@ Mugs::Mugs(const int id, const int lx, const int ly, const int lz, const int mx,
   icorner_[7] = neighbor(1,1,1);
 
   if (rank_ == 0) {
-    std::cout<<"Initialized Mugs: "<<mx<<" x "<<my<<" x "<<mz<<" elements of order "<<n-1<<" on "<<lx<<" x "<<ly<<" x "<<lz<<" tasks"<<std::endl;
+    std::cout<<"Initialized Mugs: "<<mx<<" x "<<my<<" x "<<mz<<" elements of order "<<n-1<<" on "<<lx<<" x "<<ly<<" x "<<lz<<" tasks with "<<omp_get_max_threads()<<" threads"<<std::endl;
   }
 }
 

@@ -9,7 +9,7 @@ $(EXE): $(OBJ)
 
 main.o: main.cc Array.h DArray.h Faces.h gpu.h Mugs.h
 
-Mugs.o: Mugs.h Array.h gpu.h
+Mugs.o: Mugs.cc Mugs.h Array.h gpu.h
 
 Faces.o: Faces.cc Faces.h DArray.h gpu.h
 
