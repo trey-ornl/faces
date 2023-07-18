@@ -117,16 +117,12 @@ void Faces::share(Double6D &u, const bool compute)
 
   MPI_Waitall(2,reqr_+0,MPI_STATUSES_IGNORE);
 
-  // Z updates
-
   gpuFor({n},{mx},GPU_LAMBDA(const int ix, const int jx) {
     yfs(ix,0,jx,0,0) += zfr(ix,0,jx,0,0);
     yfs(ix,nm1,jx,mzm1,0) += zfr(ix,0,jx,0,1);
     yfs(ix,0,jx,0,1) += zfr(ix,nm1,jx,mym1,0);
     yfs(ix,nm1,jx,mzm1,1) += zfr(ix,nm1,jx,mym1,1);
   });
-
-  // Y messages
 
   CHECK(gpuDeviceSynchronize());
 
@@ -143,20 +139,18 @@ void Faces::share(Double6D &u, const bool compute)
     u(ix,0,iz,jx,jy+1,jz) = u(ix,nm1,iz,jx,jy,jz);
   });
 
-  MPI_Waitall(2,reqr_+2,MPI_STATUSES_IGNORE);
-
-  // Y updates
-
-  gpuFor({n},{n},{mx},{mz},GPU_LAMBDA(const int ix, const int iz, const int jx, const int jz) {
-    u(ix,0,iz,jx,0,jz) += yfr(ix,iz,jx,jz,0);
-    u(ix,nm1,iz,jx,mym1,jz) += yfr(ix,iz,jx,jz,1);
-  });
-
-  // X messages
-
   gpuFor({n},{n},{my},{mz},GPU_LAMBDA(const int iy, const int iz, const int jy, const int jz) {
     xfs(iy,iz,jy,jz,0) = u(0,iy,iz,0,jy,jz);
     xfs(iy,iz,jy,jz,1) = u(nm1,iy,iz,mxm1,jy,jz);
+  });
+
+  MPI_Waitall(2,reqr_+2,MPI_STATUSES_IGNORE);
+
+  gpuFor({n},{mz},GPU_LAMBDA(const int iz, const int jz) {
+    xfs(0,iz,0,jz,0) += yfr(0,iz,0,jz,0);
+    xfs(nm1,iz,mym1,jz,0) += yfr(0,iz,0,jz,1);
+    xfs(0,iz,0,jz,1) += yfr(nm1,iz,mxm1,jz,0);
+    xfs(nm1,iz,mym1,jz,1) += yfr(nm1,iz,mxm1,jz,1);
   });
 
   CHECK(gpuDeviceSynchronize());
@@ -164,14 +158,17 @@ void Faces::share(Double6D &u, const bool compute)
   MPI_Isend(xfs.data(0,0,0,0,0),nface_[0],MPI_DOUBLE,iface_[0],tag,MPI_COMM_WORLD,reqs_+4);
   MPI_Isend(xfs.data(0,0,0,0,1),nface_[0],MPI_DOUBLE,iface_[1],tag,MPI_COMM_WORLD,reqs_+5);
 
+  gpuFor({n},{n},{mx},{mz},GPU_LAMBDA(const int ix, const int iz, const int jx, const int jz) {
+    u(ix,0,iz,jx,0,jz) += yfr(ix,iz,jx,jz,0);
+    u(ix,nm1,iz,jx,mym1,jz) += yfr(ix,iz,jx,jz,1);
+  });
+
   gpuFor({n},{n},{mxm1},{my},{mz},GPU_LAMBDA(const int iy, const int iz, const int jx, const int jy, const int jz) {
     u(nm1,iy,iz,jx,jy,jz) += u(0,iy,iz,jx+1,jy,jz);
     u(0,iy,iz,jx+1,jy,jz) = u(nm1,iy,iz,jx,jy,jz);
   });
 
   MPI_Waitall(2,reqr_+4,MPI_STATUSES_IGNORE);
-
-  // X updates
 
   gpuFor({n},{n},{my},{mz},GPU_LAMBDA(const int iy, const int iz, const int jy, const int jz) {
     u(0,iy,iz,0,jy,jz) += xfr(iy,iz,jy,jz,0);
