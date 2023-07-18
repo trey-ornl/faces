@@ -105,51 +105,42 @@ void Faces::share(Double6D &u, const bool compute)
   MPI_Isend(zfs.data(0,0,0,0,0),nface_[2],MPI_DOUBLE,iface_[4],tag,MPI_COMM_WORLD,reqs_+0);
   MPI_Isend(zfs.data(0,0,0,0,1),nface_[2],MPI_DOUBLE,iface_[5],tag,MPI_COMM_WORLD,reqs_+1);
 
-  gpuFor({n},{n},{mx},{my},{mzm1},GPU_LAMBDA(const int ix, const int iy, const int jx, const int jy, const int jz) {
-    u(ix,iy,nm1,jx,jy,jz) += u(ix,iy,0,jx,jy,jz+1);
-    u(ix,iy,0,jx,jy,jz+1) = u(ix,iy,nm1,jx,jy,jz);
+  MPI_Waitall(2,reqr_+0,MPI_STATUSES_IGNORE);
+
+  // Z updates
+
+  gpuFor({n},{n},{mx},{my},{mz},GPU_LAMBDA(const int ix, const int iy, const int jx, const int jy, const int jz) {
+    if (jz == 0) u(ix,iy,0,jx,jy,0) += zfr(ix,iy,jx,jy,0);
+    if (jz < mzm1) {
+      u(ix,iy,nm1,jx,jy,jz) += u(ix,iy,0,jx,jy,jz+1);
+      u(ix,iy,0,jx,jy,jz+1) = u(ix,iy,nm1,jx,jy,jz);
+    }
+    if (jz == mzm1) u(ix,iy,nm1,jx,jy,mzm1) += zfr(ix,iy,jx,jy,1);
   });
+
+  // Y messages
 
   gpuFor({n},{n},{mx},{mz},GPU_LAMBDA(const int ix, const int iz, const int jx, const int jz) {
     yfs(ix,iz,jx,jz,0) = u(ix,0,iz,jx,0,jz);
     yfs(ix,iz,jx,jz,1) = u(ix,nm1,iz,jx,mym1,jz);
   });
 
-  MPI_Waitall(2,reqr_+0,MPI_STATUSES_IGNORE);
-
-  // Z updates
-
-  gpuFor({n},{mx},GPU_LAMBDA(const int ix, const int jx) {
-    yfs(ix,0,jx,0,0) += zfr(ix,0,jx,0,0);
-    yfs(ix,nm1,jx,mzm1,0) += zfr(ix,0,jx,0,1);
-    yfs(ix,0,jx,0,1) += zfr(ix,nm1,jx,mym1,0);
-    yfs(ix,nm1,jx,mzm1,1) += zfr(ix,nm1,jx,mym1,1);
-  });
-
-  // Y messages
-
   CHECK(gpuDeviceSynchronize());
 
   MPI_Isend(yfs.data(0,0,0,0,0),nface_[1],MPI_DOUBLE,iface_[2],tag,MPI_COMM_WORLD,reqs_+2);
   MPI_Isend(yfs.data(0,0,0,0,1),nface_[1],MPI_DOUBLE,iface_[3],tag,MPI_COMM_WORLD,reqs_+3);
 
-  gpuFor({n},{n},{mx},{my},GPU_LAMBDA(const int ix, const int iy, const int jx, const int jy) {
-    u(ix,iy,0,jx,jy,0) += zfr(ix,iy,jx,jy,0);
-    u(ix,iy,nm1,jx,jy,mzm1) += zfr(ix,iy,jx,jy,1);
-  });
-
-  gpuFor({n},{n},{mx},{mym1},{mz},GPU_LAMBDA(const int ix, const int iz, const int jx, const int jy, const int jz) {
-    u(ix,nm1,iz,jx,jy,jz) += u(ix,0,iz,jx,jy+1,jz);
-    u(ix,0,iz,jx,jy+1,jz) = u(ix,nm1,iz,jx,jy,jz);
-  });
-
   MPI_Waitall(2,reqr_+2,MPI_STATUSES_IGNORE);
 
   // Y updates
 
-  gpuFor({n},{n},{mx},{mz},GPU_LAMBDA(const int ix, const int iz, const int jx, const int jz) {
-    u(ix,0,iz,jx,0,jz) += yfr(ix,iz,jx,jz,0);
-    u(ix,nm1,iz,jx,mym1,jz) += yfr(ix,iz,jx,jz,1);
+  gpuFor({n},{n},{mx},{my},{mz},GPU_LAMBDA(const int ix, const int iz, const int jx, const int jy, const int jz) {
+    if (jy == 0) u(ix,0,iz,jx,0,jz) += yfr(ix,iz,jx,jz,0);
+    if (jy < mym1) {
+      u(ix,nm1,iz,jx,jy,jz) += u(ix,0,iz,jx,jy+1,jz);
+      u(ix,0,iz,jx,jy+1,jz) = u(ix,nm1,iz,jx,jy,jz);
+    }
+    if (jy == mym1) u(ix,nm1,iz,jx,mym1,jz) += yfr(ix,iz,jx,jz,1);
   });
 
   // X messages
@@ -164,18 +155,17 @@ void Faces::share(Double6D &u, const bool compute)
   MPI_Isend(xfs.data(0,0,0,0,0),nface_[0],MPI_DOUBLE,iface_[0],tag,MPI_COMM_WORLD,reqs_+4);
   MPI_Isend(xfs.data(0,0,0,0,1),nface_[0],MPI_DOUBLE,iface_[1],tag,MPI_COMM_WORLD,reqs_+5);
 
-  gpuFor({n},{n},{mxm1},{my},{mz},GPU_LAMBDA(const int iy, const int iz, const int jx, const int jy, const int jz) {
-    u(nm1,iy,iz,jx,jy,jz) += u(0,iy,iz,jx+1,jy,jz);
-    u(0,iy,iz,jx+1,jy,jz) = u(nm1,iy,iz,jx,jy,jz);
-  });
-
   MPI_Waitall(2,reqr_+4,MPI_STATUSES_IGNORE);
 
   // X updates
 
-  gpuFor({n},{n},{my},{mz},GPU_LAMBDA(const int iy, const int iz, const int jy, const int jz) {
-    u(0,iy,iz,0,jy,jz) += xfr(iy,iz,jy,jz,0);
-    u(nm1,iy,iz,mxm1,jy,jz) += xfr(iy,iz,jy,jz,1);
+  gpuFor({n},{n},{mx},{my},{mz},GPU_LAMBDA(const int iy, const int iz, const int jx, const int jy, const int jz) {
+    if (jx == 0) u(0,iy,iz,0,jy,jz) += xfr(iy,iz,jy,jz,0);
+    if (jx < mxm1) {
+      u(nm1,iy,iz,jx,jy,jz) += u(0,iy,iz,jx+1,jy,jz);
+      u(0,iy,iz,jx+1,jy,jz) = u(nm1,iy,iz,jx,jy,jz);
+    }
+    if (jx == mxm1) u(nm1,iy,iz,mxm1,jy,jz) += xfr(iy,iz,jy,jz,1);
   });
 
   MPI_Waitall(6,reqs_,MPI_STATUSES_IGNORE);
