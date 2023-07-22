@@ -149,6 +149,36 @@ void Faces::share(Double6D &u, const bool compute)
   MPI_Isend(yfs.data(0,0,0,0,0),nface_[1],MPI_DOUBLE,iface_[2],tag,MPI_COMM_WORLD,reqs_+2);
   MPI_Isend(yfs.data(0,0,0,0,1),nface_[1],MPI_DOUBLE,iface_[3],tag,MPI_COMM_WORLD,reqs_+3);
 
+#ifdef FUSE_Z
+
+  gpuFor({n},{n},{mx},{my},{mz},GPU_LAMBDA(const int ia, const int ib, const int jx, const int jy, const int jz) {
+    if (jz == 0) {
+      const int ix = ia;
+      const int iy = nm1-ib;
+      if ((jy == 0) || (iy > 0)) u(ix,iy,0,jx,jy,0) += zfr(ix,iy,jx,jy,0);
+      if ((jy < mym1) && (iy == nm1)) u(ix,0,0,jx,jy+1,0) += zfr(ix,0,jx,jy+1,0);
+    }
+    else if (jz == mzm1) {
+      const int ix = ia;
+      const int iy = ib;
+      if ((jy == 0) || (iy > 0)) u(ix,iy,nm1,jx,jy,mzm1) += zfr(ix,iy,jx,jy,1);
+      if ((jy < mym1) && (iy == nm1)) u(ix,0,nm1,jx,jy+1,mzm1) += zfr(ix,0,jx,jy+1,1);
+    }
+    if (jy < mym1) {
+      const int ix = ia;
+      const int iz = ib;
+      u(ix,nm1,iz,jx,jy,jz) += u(ix,0,iz,jx,jy+1,jz);
+      u(ix,0,iz,jx,jy+1,jz) = u(ix,nm1,iz,jx,jy,jz);
+    }
+  });
+
+  gpuFor({n},{n},{mx},{my},{mz},GPU_LAMBDA(const int iy, const int iz, const int jx, const int jy, const int jz) {
+    if (jx == 0) xfs(iy,iz,jy,jz,0) = u(0,iy,iz,0,jy,jz);
+    if (jx == mxm1) xfs(iy,iz,jy,jz,1) = u(nm1,iy,iz,mxm1,jy,jz);
+  });
+
+#else
+
   gpuFor({n},{n},{mx},{my},GPU_LAMBDA(const int ix, const int iy, const int jx, const int jy) {
     u(ix,iy,0,jx,jy,0) += zfr(ix,iy,jx,jy,0);
     u(ix,iy,nm1,jx,jy,mzm1) += zfr(ix,iy,jx,jy,1);
@@ -163,6 +193,8 @@ void Faces::share(Double6D &u, const bool compute)
     xfs(iy,iz,jy,jz,0) = u(0,iy,iz,0,jy,jz);
     xfs(iy,iz,jy,jz,1) = u(nm1,iy,iz,mxm1,jy,jz);
   });
+
+#endif
 
   MPI_Waitall(2,reqr_+2,MPI_STATUSES_IGNORE);
 
