@@ -108,16 +108,18 @@ void Faces::share(Double6D &u, const bool compute)
 
   gpuFor({n},{n},{mx},{my},{mz},GPU_LAMBDA(const int ix, const int ia, const int jx, const int jy, const int jz) {
     if (jz < mzm1) {
-      u(ix,ia,nm1,jx,jy,jz) += u(ix,ia,0,jx,jy,jz+1);
-      u(ix,ia,0,jx,jy,jz+1) = u(ix,ia,nm1,jx,jy,jz);
+      const int iy = ia;
+      u(ix,iy,nm1,jx,jy,jz) += u(ix,iy,0,jx,jy,jz+1);
+      u(ix,iy,0,jx,jy,jz+1) = u(ix,iy,nm1,jx,jy,jz);
     }
     if (jy == 0) {
-      const int ib = nm1-ia;
-      if ((jz == 0) || (ib > 0)) yfs(ix,ib,jx,jz,0) = u(ix,0,ib,jx,0,jz);
-      if ((jz < mzm1) && (ib == nm1)) yfs(ix,0,jx,jz+1,0) = u(ix,0,0,jx,0,jz+1);
+      const int iz = nm1-ia;
+      if ((jz == 0) || (iz > 0)) yfs(ix,iz,jx,jz,0) = u(ix,0,iz,jx,0,jz);
+      if ((jz < mzm1) && (iz == nm1)) yfs(ix,0,jx,jz+1,0) = u(ix,0,0,jx,0,jz+1);
     } else if (jy == mym1) {
-      if ((jz == 0) || (ia > 0)) yfs(ix,ia,jx,jz,1) = u(ix,nm1,ia,jx,mym1,jz);
-      if ((jz < mzm1) && (ia == nm1)) yfs(ix,0,jx,jz+1,1) = u(ix,nm1,0,jx,mym1,jz+1);
+      const int iz = ia;
+      if ((jz == 0) || (iz > 0)) yfs(ix,iz,jx,jz,1) = u(ix,nm1,iz,jx,mym1,jz);
+      if ((jz < mzm1) && (iz == nm1)) yfs(ix,0,jx,jz+1,1) = u(ix,nm1,0,jx,mym1,jz+1);
     }
   });
 
@@ -213,18 +215,20 @@ void Faces::share(Double6D &u, const bool compute)
 #ifdef FUSE_X
 
   gpuFor({n},{n},{mx},{my},{mz},GPU_LAMBDA(const int ia, const int iz, const int jx, const int jy, const int jz) {
-    const int ib = nm1-ia;
     if (jy == 0) {
-      if ((jx == 0) || (ia > 0)) u(ia,0,iz,jx,0,jz) += yfr(ia,iz,jx,jz,0);
-      if ((jx < mxm1) && (ia == nm1)) u(0,0,iz,jx+1,0,jz) += yfr(0,iz,jx+1,jz,0);
+      const int ix = ia;
+      if ((jx == 0) || (ix > 0)) u(ix,0,iz,jx,0,jz) += yfr(ix,iz,jx,jz,0);
+      if ((jx < mxm1) && (ix == nm1)) u(0,0,iz,jx+1,0,jz) += yfr(0,iz,jx+1,jz,0);
     }
     else if (jy == mym1) {
-      if ((jx == 0) || (ib > 0)) u(ib,nm1,iz,jx,mym1,jz) += yfr(ib,iz,jx,jz,1);
-      if ((jx < mxm1) && (ib == nm1)) u(0,nm1,iz,jx+1,mym1,jz) += yfr(0,iz,jx+1,jz,1);
+      const int ix = nm1-ia;
+      if ((jx == 0) || (ix > 0)) u(ix,nm1,iz,jx,mym1,jz) += yfr(ix,iz,jx,jz,1);
+      if ((jx < mxm1) && (ix == nm1)) u(0,nm1,iz,jx+1,mym1,jz) += yfr(0,iz,jx+1,jz,1);
     }
     if (jx < mxm1) {
-      u(nm1,ib,iz,jx,jy,jz) += u(0,ib,iz,jx+1,jy,jz);
-      u(0,ib,iz,jx+1,jy,jz) = u(nm1,ib,iz,jx,jy,jz);
+      const int iy = nm1-ia;
+      u(nm1,iy,iz,jx,jy,jz) += u(0,iy,iz,jx+1,jy,jz);
+      u(0,iy,iz,jx+1,jy,jz) = u(nm1,iy,iz,jx,jy,jz);
     }
   });
 
