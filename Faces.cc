@@ -93,7 +93,6 @@ void Faces::share(Double6D &u, const bool compute)
   MPI_Irecv(xfr.data(0,0,0,0,0),nface_[0],MPI_DOUBLE,iface_[0],tag,MPI_COMM_WORLD,reqr_+4);
   MPI_Irecv(xfr.data(0,0,0,0,1),nface_[0],MPI_DOUBLE,iface_[1],tag,MPI_COMM_WORLD,reqr_+5);
 
-  // Z messages
 
   gpuFor({n},{n},{mx},{my},GPU_LAMBDA(const int ix, const int iy, const int jx, const int jy) {
     zfs(ix,iy,jx,jy,0) = u(ix,iy,0,jx,jy,0);
@@ -105,6 +104,25 @@ void Faces::share(Double6D &u, const bool compute)
   MPI_Isend(zfs.data(0,0,0,0,0),nface_[2],MPI_DOUBLE,iface_[4],tag,MPI_COMM_WORLD,reqs_+0);
   MPI_Isend(zfs.data(0,0,0,0,1),nface_[2],MPI_DOUBLE,iface_[5],tag,MPI_COMM_WORLD,reqs_+1);
 
+#ifdef FUSE_Y
+
+  gpuFor({n},{n},{mx},{my},{mz},GPU_LAMBDA(const int ix, const int ia, const int jx, const int jy, const int jz) {
+    if (jz < mzm1) {
+      u(ix,ia,nm1,jx,jy,jz) += u(ix,ia,0,jx,jy,jz+1);
+      u(ix,ia,0,jx,jy,jz+1) = u(ix,ia,nm1,jx,jy,jz);
+    }
+    if (jy == 0) {
+      const int ib = nm1-ia;
+      if ((jz == 0) || (ib > 0)) yfs(ix,ib,jx,jz,0) = u(ix,0,ib,jx,0,jz);
+      if ((jz < mzm1) && (ib == nm1)) yfs(ix,0,jx,jz+1,0) = u(ix,0,0,jx,0,jz+1);
+    } else if (jy == mym1) {
+      if ((jz == 0) || (ia > 0)) yfs(ix,ia,jx,jz,1) = u(ix,nm1,ia,jx,mym1,jz);
+      if ((jz < mzm1) && (ia == nm1)) yfs(ix,0,jx,jz+1,1) = u(ix,nm1,0,jx,mym1,jz+1);
+    }
+  });
+
+#else
+
   gpuFor({n},{n},{mx},{my},{mzm1},GPU_LAMBDA(const int ix, const int iy, const int jx, const int jy, const int jz) {
     u(ix,iy,nm1,jx,jy,jz) += u(ix,iy,0,jx,jy,jz+1);
     u(ix,iy,0,jx,jy,jz+1) = u(ix,iy,nm1,jx,jy,jz);
@@ -114,6 +132,8 @@ void Faces::share(Double6D &u, const bool compute)
     yfs(ix,iz,jx,jz,0) = u(ix,0,iz,jx,0,jz);
     yfs(ix,iz,jx,jz,1) = u(ix,nm1,iz,jx,mym1,jz);
   });
+
+#endif
 
   MPI_Waitall(2,reqr_+0,MPI_STATUSES_IGNORE);
 
