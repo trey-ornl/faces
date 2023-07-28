@@ -170,19 +170,23 @@ void Faces::share(Double6D &u, const bool compute)
       u(ia,nm1,ib,jx,jy,jz) += u(ia,0,ib,jx,jy+1,jz);
       u(ia,0,ib,jx,jy+1,jz) = u(ia,nm1,ib,jx,jy,jz);
     }
+    if (((jz > 0) || (ib > 0)) && ((jz < mzm1) || (ib < nm1))) {
+      if ((jy == 0) || (ia < nm1)) {
+        if (jx == 0) xfs(nm1-ia,ib,jy,jz,0) = u(0,nm1-ia,ib,0,jy,jz);
+      }
+      if ((jy == 0) || (ia > 0)) {
+        if (jx == mxm1) xfs(ia,ib,jy,jz,1) = u(nm1,ia,ib,mxm1,jy,jz);
+      }
+      if ((jy < mym1) && (ia == 0)) {
+        if (jx == 0) xfs(0,ib,jy+1,jz,0) = u(0,0,ib,0,jy+1,jz);
+      }
+      if ((jy < mym1) && (ia == nm1)) {
+        if (jx == mxm1) xfs(0,ib,jy+1,jz,1) = u(nm1,0,ib,mxm1,jy+1,jz);
+      }
+    }
   });
 
   gpuFor({n},{n},{mx},{my},{mz},GPU_LAMBDA(const int ia, const int ib, const int jx, const int jy, const int jz) {
-    if (((jz > 0) || (ia > 0)) && ((jz < mzm1) || (ia < nm1))) {
-      if ((jy == 0) || (ib > 0)) {
-        if (jx == 0) xfs(ib,ia,jy,jz,0) = u(0,ib,ia,0,jy,jz);
-        else if (jx == mxm1) xfs(ib,ia,jy,jz,1) = u(nm1,ib,ia,mxm1,jy,jz);
-      }
-      if ((jy < mym1) && (ib == nm1)) {
-        if (jx == 0) xfs(0,ia,jy+1,jz,0) = u(0,0,ia,0,jy+1,jz);
-        else if (jx == mxm1) xfs(0,ia,jy+1,jz,1) = u(nm1,0,ia,mxm1,jy+1,jz);
-      }
-    }
     if ((jz == 0) && (ia == 0)) {
       if ((jy == 0) || (ib > 0)) {
         if (jx == 0) xfs(ib,0,jy,jz,0) = u(0,ib,0,0,jy,jz);
