@@ -154,17 +154,18 @@ void Faces::share(Double6D &u, const bool compute)
 #ifdef FUSE_Z
 
   gpuFor({n},{n},{mx},{my},{mz},GPU_LAMBDA(const int ia, const int ib, const int jx, const int jy, const int jz) {
-    if ((jy == 0) || (ib > 0)) {
-      if (jz == 0) u(ia,ib,0,jx,jy,0) += zfr(ia,ib,jx,jy,0);
-      else if (jz == mzm1) u(ia,ib,nm1,jx,jy,mzm1) += zfr(ia,ib,jx,jy,1);
+    if ((jy < mym1) && (ib == 0)) {
+      if (jz == 0) u(ia,0,0,jx,jy+1,0) += zfr(ia,0,jx,jy+1,0);
     }
     if ((jy < mym1) && (ib == nm1)) {
-      if (jz == 0) u(ia,0,0,jx,jy+1,0) += zfr(ia,0,jx,jy+1,0);
-      else if (jz == mzm1) u(ia,0,nm1,jx,jy+1,mzm1) += zfr(ia,0,jx,jy+1,1);
+      if (jz == mzm1) u(ia,0,nm1,jx,jy+1,mzm1) += zfr(ia,0,jx,jy+1,1);
     }
-  });
-
-  gpuFor({n},{n},{mx},{my},{mz},GPU_LAMBDA(const int ia, const int ib, const int jx, const int jy, const int jz) {
+    if ((jy == 0) || (ib < nm1)) {
+      if (jz == 0) u(ia,nm1-ib,0,jx,jy,0) += zfr(ia,nm1-ib,jx,jy,0);
+    }
+    if ((jy == 0) || (ib > 0)) {
+      if (jz == mzm1) u(ia,ib,nm1,jx,jy,mzm1) += zfr(ia,ib,jx,jy,1);
+    }
     if (jy < mym1) {
       u(ia,nm1,ib,jx,jy,jz) += u(ia,0,ib,jx,jy+1,jz);
       u(ia,0,ib,jx,jy+1,jz) = u(ia,nm1,ib,jx,jy,jz);
