@@ -298,6 +298,8 @@ void Faces::share(Double6D &u, const bool compute)
   
   if (compute) {
 
+#ifdef FUSE_INNER
+
     gpuFor({1,nm1},{1,nm1},{mx},{my},{mz},GPU_LAMBDA(const int i0, const int i1, const int jx, const int jy, const int jz) {
       if (jz > 0) {
         const int ix = i0;
@@ -339,6 +341,41 @@ void Faces::share(Double6D &u, const bool compute)
         }
       }
     },stream_[1]);
+
+#else
+
+    gpuFor({1,nm1},{1,nm1},{mx},{my},{1,mz},GPU_LAMBDA(const int ix, const int iy, const int jx, const int jy, const int jz) {
+      u(ix,iy,0,jx,jy,jz) += u(ix,iy,nm1,jx,jy,jz-1);
+      u(ix,iy,nm1,jx,jy,jz-1) = u(ix,iy,0,jx,jy,jz);
+      if ((jx > 0) && (ix == 1)) {
+        u(0,iy,0,jx,jy,jz) += u(nm1,iy,0,jx-1,jy,jz)+u(0,iy,nm1,jx,jy,jz-1)+u(nm1,iy,nm1,jx-1,jy,jz-1);
+        u(nm1,iy,0,jx-1,jy,jz) = u(0,iy,nm1,jx,jy,jz-1) = u(nm1,iy,nm1,jx-1,jy,jz-1) = u(0,iy,0,jx,jy,jz);
+        if ((jy > 0) && (iy == 1)) {
+          u(0,0,0,jx,jy,jz) += u(nm1,0,0,jx-1,jy,jz)+u(0,nm1,0,jx,jy-1,jz)+u(nm1,nm1,0,jx-1,jy-1,jz)+u(0,0,nm1,jx,jy,jz-1)+u(nm1,0,nm1,jx-1,jy,jz-1)+u(0,nm1,nm1,jx,jy-1,jz-1)+u(nm1,nm1,nm1,jx-1,jy-1,jz-1);
+          u(nm1,0,0,jx-1,jy,jz) = u(0,nm1,0,jx,jy-1,jz) = u(nm1,nm1,0,jx-1,jy-1,jz) = u(0,0,nm1,jx,jy,jz-1) = u(nm1,0,nm1,jx-1,jy,jz-1) = u(0,nm1,nm1,jx,jy-1,jz-1) = u(nm1,nm1,nm1,jx-1,jy-1,jz-1) = u(0,0,0,jx,jy,jz);
+        }
+      }
+    },stream_[1]);
+
+    gpuFor({1,nm1},{1,nm1},{mx},{1,my},{mz},GPU_LAMBDA(const int ix, const int iz, const int jx, const int jy, const int jz) {
+      u(ix,0,iz,jx,jy,jz) += u(ix,nm1,iz,jx,jy-1,jz);
+      u(ix,nm1,iz,jx,jy-1,jz) = u(ix,0,iz,jx,jy,jz);
+      if ((jz > 0) && (iz == 1)) {
+        u(ix,0,0,jx,jy,jz) += u(ix,nm1,0,jx,jy-1,jz)+u(ix,0,nm1,jx,jy,jz-1)+u(ix,nm1,nm1,jx,jy-1,jz-1);
+        u(ix,nm1,0,jx,jy-1,jz) = u(ix,0,nm1,jx,jy,jz-1) = u(ix,nm1,nm1,jx,jy-1,jz-1) = u(ix,0,0,jx,jy,jz);
+      }
+    },stream_[1]);
+
+    gpuFor({1,nm1},{1,nm1},{1,mx},{my},{mz},GPU_LAMBDA(const int iy, const int iz, const int jx, const int jy, const int jz) {
+      u(0,iy,iz,jx,jy,jz) += u(nm1,iy,iz,jx-1,jy,jz);
+      u(nm1,iy,iz,jx-1,jy,jz) = u(0,iy,iz,jx,jy,jz);
+      if ((jy > 0) && (iy == 1)) {
+        u(0,0,iz,jx,jy,jz) += u(nm1,0,iz,jx-1,jy,jz)+u(0,nm1,iz,jx,jy-1,jz)+u(nm1,nm1,iz,jx-1,jy-1,jz);
+        u(nm1,0,iz,jx-1,jy,jz) = u(0,nm1,iz,jx,jy-1,jz) = u(nm1,nm1,iz,jx-1,jy-1,jz) = u(0,0,iz,jx,jy,jz);
+      }
+    },stream_[1]);
+
+#endif
 
   }
 
