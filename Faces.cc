@@ -154,30 +154,55 @@ void Faces::share(Double6D &u, const bool compute)
 #ifdef FUSE_Z
 
   gpuFor({n},{n},{mx},{my},{mz},GPU_LAMBDA(const int ia, const int ib, const int jx, const int jy, const int jz) {
-    if (jz == 0) {
-      const int ix = ia;
-      const int iy = nm1-ib;
-      if ((jy == 0) || (iy > 0)) u(ix,iy,0,jx,jy,0) += zfr(ix,iy,jx,jy,0);
-      if ((jy < mym1) && (iy == nm1)) u(ix,0,0,jx,jy+1,0) += zfr(ix,0,jx,jy+1,0);
+    if ((jy == 0) || (ib > 0)) {
+      if (jz == 0) u(ia,ib,0,jx,jy,0) += zfr(ia,ib,jx,jy,0);
+      else if (jz == mzm1) u(ia,ib,nm1,jx,jy,mzm1) += zfr(ia,ib,jx,jy,1);
     }
-    else if (jz == mzm1) {
-      const int ix = ia;
-      const int iy = ib;
-      if ((jy == 0) || (iy > 0)) u(ix,iy,nm1,jx,jy,mzm1) += zfr(ix,iy,jx,jy,1);
-      if ((jy < mym1) && (iy == nm1)) u(ix,0,nm1,jx,jy+1,mzm1) += zfr(ix,0,jx,jy+1,1);
-    }
-    if (jy < mym1) {
-      const int ix = ia;
-      const int iz = ib;
-      u(ix,nm1,iz,jx,jy,jz) += u(ix,0,iz,jx,jy+1,jz);
-      u(ix,0,iz,jx,jy+1,jz) = u(ix,nm1,iz,jx,jy,jz);
+    if ((jy < mym1) && (ib == nm1)) {
+      if (jz == 0) u(ia,0,0,jx,jy+1,0) += zfr(ia,0,jx,jy+1,0);
+      else if (jz == mzm1) u(ia,0,nm1,jx,jy+1,mzm1) += zfr(ia,0,jx,jy+1,1);
     }
   });
 
-  gpuFor({n},{n},{mx},{my},{mz},GPU_LAMBDA(const int iy, const int iz, const int jx, const int jy, const int jz) {
-    if (jx == 0) xfs(iy,iz,jy,jz,0) = u(0,iy,iz,0,jy,jz);
-    if (jx == mxm1) xfs(iy,iz,jy,jz,1) = u(nm1,iy,iz,mxm1,jy,jz);
+  gpuFor({n},{n},{mx},{my},{mz},GPU_LAMBDA(const int ia, const int ib, const int jx, const int jy, const int jz) {
+    if (jy < mym1) {
+      u(ia,nm1,ib,jx,jy,jz) += u(ia,0,ib,jx,jy+1,jz);
+      u(ia,0,ib,jx,jy+1,jz) = u(ia,nm1,ib,jx,jy,jz);
+    }
   });
+
+  gpuFor({n},{n},{mx},{my},{mz},GPU_LAMBDA(const int ia, const int ib, const int jx, const int jy, const int jz) {
+    if (((jz > 0) || (ia > 0)) && ((jz < mzm1) || (ia < nm1))) {
+      if ((jy == 0) || (ib > 0)) {
+        if (jx == 0) xfs(ib,ia,jy,jz,0) = u(0,ib,ia,0,jy,jz);
+        else if (jx == mxm1) xfs(ib,ia,jy,jz,1) = u(nm1,ib,ia,mxm1,jy,jz);
+      }
+      if ((jy < mym1) && (ib == nm1)) {
+        if (jx == 0) xfs(0,ia,jy+1,jz,0) = u(0,0,ia,0,jy+1,jz);
+        else if (jx == mxm1) xfs(0,ia,jy+1,jz,1) = u(nm1,0,ia,mxm1,jy+1,jz);
+      }
+    }
+    if ((jz == 0) && (ia == 0)) {
+      if ((jy == 0) || (ib > 0)) {
+        if (jx == 0) xfs(ib,0,jy,jz,0) = u(0,ib,0,0,jy,jz);
+        else if (jx == mxm1) xfs(ib,0,jy,jz,1) = u(nm1,ib,0,mxm1,jy,jz);
+      }
+      if ((jy < mym1) && (ib == nm1)) {
+        if (jx == 0) xfs(0,0,jy+1,jz,0) = u(0,0,0,0,jy+1,jz);
+        else if (jx == mxm1) xfs(0,0,jy+1,jz,1) = u(nm1,0,0,mxm1,jy+1,jz);
+      }
+    }
+    if ((jz == mzm1) && (ia == nm1)) {
+      if ((jy == 0) || (ib > 0)) {
+        if (jx == 0) xfs(ib,nm1,jy,jz,0) = u(0,ib,nm1,0,jy,jz);
+        else if (jx == mxm1) xfs(ib,nm1,jy,jz,1) = u(nm1,ib,nm1,mxm1,jy,jz);
+      }
+      if ((jy < mym1) && (ib == nm1)) {
+        if (jx == 0) xfs(0,nm1,jy+1,jz,0) = u(0,0,nm1,0,jy+1,jz);
+        else if (jx == mxm1) xfs(0,nm1,jy+1,jz,1) = u(nm1,0,nm1,mxm1,jy+1,jz);
+      }
+    }
+ });
 
 #else
 
