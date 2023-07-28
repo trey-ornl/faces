@@ -9,6 +9,11 @@
 #include "hip/hip_runtime.h"
 #define gpuDeviceSynchronize hipDeviceSynchronize
 #define gpuError_t hipError_t
+#define gpuEvent_t hipEvent_t
+#define gpuEventCreate hipEventCreate
+#define gpuEventDestroy hipEventDestroy
+#define gpuEventRecord hipEventRecord
+#define gpuEventSynchronize hipEventSynchronize
 #define gpuFree hipFree
 #define gpuGetDevice hipGetDevice
 #define gpuGetDeviceCount hipGetDeviceCount
@@ -30,6 +35,11 @@
 #ifdef __NVCOMPILER
 #define gpuDeviceSynchronize cudaDeviceSynchronize
 #define gpuError_t cudaError_t
+#define gpuEvent_t cudaEvent_t
+#define gpuEventCreate cudaEventCreate
+#define gpuEventDestroy cudaEventDestroy
+#define gpuEventRecord cudaEventRecord
+#define gpuEventSynchronize cudaEventSynchronize
 #define gpuFree cudaFree
 #define gpuGetDevice cudaGetDevice
 #define gpuGetDeviceCount cudaGetDeviceCount
