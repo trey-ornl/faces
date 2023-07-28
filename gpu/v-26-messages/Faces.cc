@@ -172,6 +172,8 @@ void Faces::share(Double6D &u, const bool compute)
 
   // copy send messages
 
+#ifdef FUSE_SEND
+
   gpuFor({n},{n},{std::max(mx,my)},{std::max(my,mz)},GPU_LAMBDA(const int ia, const int ib, const int ja, const int jb) {
     if ((ja < mx) && (jb < my)) {
       const int ix = ia;
@@ -236,9 +238,67 @@ void Faces::share(Double6D &u, const bool compute)
     }
   },stream_[0]);
 
+#else
+
+  gpuFor({n},{n},{mx},{my},GPU_LAMBDA(const int ix, const int iy, const int jx, const int jy) {
+    zfs(ix,iy,jx,jy,0) = u(ix,iy,0,jx,jy,0);
+    zfs(ix,iy,jx,jy,1) = u(ix,iy,nm1,jx,jy,mzm1);
+    if ((iy == 0) && (jy == 0)) {
+      xes(ix,jx,0) = u(ix,0,0,jx,0,0);
+      xes(ix,jx,2) = u(ix,0,nm1,jx,0,mzm1);
+    } else if ((iy == nm1) && (jy == mym1)) {
+      xes(ix,jx,1) = u(ix,nm1,0,jx,mym1,0);
+      xes(ix,jx,3) = u(ix,nm1,nm1,jx,mym1,mzm1);
+    }
+    if ((ix == 0) && (jx == 0)) {
+      yes(iy,jy,0) = u(0,iy,0,0,jy,0);
+      yes(iy,jy,2) = u(0,iy,nm1,0,jy,mzm1);
+    } else if ((ix == nm1) && (jx == mxm1)) {
+      yes(iy,jy,1) = u(nm1,iy,0,mxm1,jy,0);
+      yes(iy,jy,3) = u(nm1,iy,nm1,mxm1,jy,mzm1);
+    }
+    if ((ix == 0) && (iy == 0) && (jx == 0) && (jy == 0)) {
+      corners(0,0) = u(0,0,0,0,0,0);
+      corners(0,4) = u(0,0,nm1,0,0,mzm1);
+    }
+    if ((ix == nm1) && (iy == 0) && (jx == mxm1) && (jy == 0)) {
+      corners(0,1) = u(nm1,0,0,mxm1,0,0);
+      corners(0,5) = u(nm1,0,nm1,mxm1,0,mzm1);
+    }
+    if ((ix == 0) && (iy == nm1) && (jx == 0) && (jy == mym1)) {
+      corners(0,2) = u(0,nm1,0,0,mym1,0);
+      corners(0,6) = u(0,nm1,nm1,0,mym1,mzm1);
+    }
+    if ((ix == nm1) && (iy == nm1) && (jx == mxm1) && (jy == mym1)) {
+      corners(0,3) = u(nm1,nm1,0,mxm1,mym1,0);
+      corners(0,7) = u(nm1,nm1,nm1,mxm1,mym1,mzm1);
+    }
+  },stream_[0]);
+
+  gpuFor({n},{n},{mx},{mz},GPU_LAMBDA(const int ix, const int iz, const int jx, const int jz) {
+    yfs(ix,iz,jx,jz,0) = u(ix,0,iz,jx,0,jz);
+    yfs(ix,iz,jx,jz,1) = u(ix,nm1,iz,jx,mym1,jz);
+    if ((ix == 0) && (jx == 0)) {
+      zes(iz,jz,0) = u(0,0,iz,0,0,jz);
+      zes(iz,jz,2) = u(0,nm1,iz,0,mym1,jz);
+    } else if ((ix == nm1) && (jx == mxm1)) {
+      zes(iz,jz,1) = u(nm1,0,iz,mxm1,0,jz);
+      zes(iz,jz,3) = u(nm1,nm1,iz,mxm1,mym1,jz);
+    }
+  },stream_[0]);
+
+  gpuFor({n},{n},{my},{mz},GPU_LAMBDA(const int iy, const int iz, const int jy, const int jz) {
+    xfs(iy,iz,jy,jz,0) = u(0,iy,iz,0,jy,jz);
+    xfs(iy,iz,jy,jz,1) = u(nm1,iy,iz,mxm1,jy,jz);
+  },stream_[0]);
+
+#endif
+
   // compute internal faces, edges, and corners
   
   if (compute) {
+
+#ifdef FUSE_INNER
 
     gpuFor({1,nm1},{1,nm1},{mx},{my},{mz},GPU_LAMBDA(const int i0, const int i1, const int jx, const int jy, const int jz) {
       if (jz > 0) {
@@ -282,6 +342,41 @@ void Faces::share(Double6D &u, const bool compute)
       }
     },stream_[1]);
 
+#else
+
+    gpuFor({1,nm1},{1,nm1},{mx},{my},{1,mz},GPU_LAMBDA(const int ix, const int iy, const int jx, const int jy, const int jz) {
+      u(ix,iy,0,jx,jy,jz) += u(ix,iy,nm1,jx,jy,jz-1);
+      u(ix,iy,nm1,jx,jy,jz-1) = u(ix,iy,0,jx,jy,jz);
+      if ((jx > 0) && (ix == 1)) {
+        u(0,iy,0,jx,jy,jz) += u(nm1,iy,0,jx-1,jy,jz)+u(0,iy,nm1,jx,jy,jz-1)+u(nm1,iy,nm1,jx-1,jy,jz-1);
+        u(nm1,iy,0,jx-1,jy,jz) = u(0,iy,nm1,jx,jy,jz-1) = u(nm1,iy,nm1,jx-1,jy,jz-1) = u(0,iy,0,jx,jy,jz);
+        if ((jy > 0) && (iy == 1)) {
+          u(0,0,0,jx,jy,jz) += u(nm1,0,0,jx-1,jy,jz)+u(0,nm1,0,jx,jy-1,jz)+u(nm1,nm1,0,jx-1,jy-1,jz)+u(0,0,nm1,jx,jy,jz-1)+u(nm1,0,nm1,jx-1,jy,jz-1)+u(0,nm1,nm1,jx,jy-1,jz-1)+u(nm1,nm1,nm1,jx-1,jy-1,jz-1);
+          u(nm1,0,0,jx-1,jy,jz) = u(0,nm1,0,jx,jy-1,jz) = u(nm1,nm1,0,jx-1,jy-1,jz) = u(0,0,nm1,jx,jy,jz-1) = u(nm1,0,nm1,jx-1,jy,jz-1) = u(0,nm1,nm1,jx,jy-1,jz-1) = u(nm1,nm1,nm1,jx-1,jy-1,jz-1) = u(0,0,0,jx,jy,jz);
+        }
+      }
+    },stream_[1]);
+
+    gpuFor({1,nm1},{1,nm1},{mx},{1,my},{mz},GPU_LAMBDA(const int ix, const int iz, const int jx, const int jy, const int jz) {
+      u(ix,0,iz,jx,jy,jz) += u(ix,nm1,iz,jx,jy-1,jz);
+      u(ix,nm1,iz,jx,jy-1,jz) = u(ix,0,iz,jx,jy,jz);
+      if ((jz > 0) && (iz == 1)) {
+        u(ix,0,0,jx,jy,jz) += u(ix,nm1,0,jx,jy-1,jz)+u(ix,0,nm1,jx,jy,jz-1)+u(ix,nm1,nm1,jx,jy-1,jz-1);
+        u(ix,nm1,0,jx,jy-1,jz) = u(ix,0,nm1,jx,jy,jz-1) = u(ix,nm1,nm1,jx,jy-1,jz-1) = u(ix,0,0,jx,jy,jz);
+      }
+    },stream_[1]);
+
+    gpuFor({1,nm1},{1,nm1},{1,mx},{my},{mz},GPU_LAMBDA(const int iy, const int iz, const int jx, const int jy, const int jz) {
+      u(0,iy,iz,jx,jy,jz) += u(nm1,iy,iz,jx-1,jy,jz);
+      u(nm1,iy,iz,jx-1,jy,jz) = u(0,iy,iz,jx,jy,jz);
+      if ((jy > 0) && (iy == 1)) {
+        u(0,0,iz,jx,jy,jz) += u(nm1,0,iz,jx-1,jy,jz)+u(0,nm1,iz,jx,jy-1,jz)+u(nm1,nm1,iz,jx-1,jy-1,jz);
+        u(nm1,0,iz,jx-1,jy,jz) = u(0,nm1,iz,jx,jy-1,jz) = u(nm1,nm1,iz,jx-1,jy-1,jz) = u(0,0,iz,jx,jy,jz);
+      }
+    },stream_[1]);
+
+#endif
+
   }
 
   // send in use order
@@ -322,7 +417,9 @@ void Faces::share(Double6D &u, const bool compute)
   MPI_Waitall(26,reqr_,MPI_STATUSES_IGNORE);
 
   // compute faces, edges, and corners
-  
+ 
+#ifdef FUSE_RECV
+
   gpuFor({nm1},{nm1},{std::max(mx,my)},{std::max(my,mz)},GPU_LAMBDA(const int ia, const int ib, const int ja, const int jb) {
     if ((ja < mx) && (jb < my)) {
       const int ix = ia;
@@ -451,6 +548,127 @@ void Faces::share(Double6D &u, const bool compute)
       }
     }
   },stream_[0]);
+
+#else
+
+  gpuFor({nm1},{nm1},{mx},{my},GPU_LAMBDA(const int ix, const int iy, const int jx, const int jy) {
+    if ((ix == 0) && (iy == 0) && (jx > 0) && (jy > 0)) {
+      u(0,0,0,jx,jy,0) += u(nm1,0,0,jx-1,jy,0)+u(0,nm1,0,jx,jy-1,0)+u(nm1,nm1,0,jx-1,jy-1,0)+zfr(0,0,jx,jy,0)+zfr(nm1,0,jx-1,jy,0)+zfr(0,nm1,jx,jy-1,0)+zfr(nm1,nm1,jx-1,jy-1,0);
+      u(nm1,0,0,jx-1,jy,0) = u(0,nm1,0,jx,jy-1,0) = u(nm1,nm1,0,jx-1,jy-1,0) = u(0,0,0,jx,jy,0);
+      u(0,0,nm1,jx,jy,mzm1) += u(nm1,0,nm1,jx-1,jy,mzm1)+u(0,nm1,nm1,jx,jy-1,mzm1)+u(nm1,nm1,nm1,jx-1,jy-1,mzm1)+zfr(0,0,jx,jy,1)+zfr(nm1,0,jx-1,jy,1)+zfr(0,nm1,jx,jy-1,1)+zfr(nm1,nm1,jx-1,jy-1,1);
+      u(nm1,0,nm1,jx-1,jy,mzm1) = u(0,nm1,nm1,jx,jy-1,mzm1) = u(nm1,nm1,nm1,jx-1,jy-1,mzm1) = u(0,0,nm1,jx,jy,mzm1);
+    } else if ((ix > 0) && (iy == 0) && (jy > 0)) {
+      u(ix,0,0,jx,jy,0) += u(ix,nm1,0,jx,jy-1,0)+zfr(ix,0,jx,jy,0)+zfr(ix,nm1,jx,jy-1,0);
+      u(ix,nm1,0,jx,jy-1,0) = u(ix,0,0,jx,jy,0);
+      u(ix,0,nm1,jx,jy,mzm1) += u(ix,nm1,nm1,jx,jy-1,mzm1)+zfr(ix,0,jx,jy,1)+zfr(ix,nm1,jx,jy-1,1);
+      u(ix,nm1,nm1,jx,jy-1,mzm1) = u(ix,0,nm1,jx,jy,mzm1);
+    } else if ((ix == 0) && (iy > 0) && (jx > 0)) {
+      u(0,iy,0,jx,jy,0) += u(nm1,iy,0,jx-1,jy,0)+zfr(0,iy,jx,jy,0)+zfr(nm1,iy,jx-1,jy,0);
+      u(nm1,iy,0,jx-1,jy,0) = u(0,iy,0,jx,jy,0);
+      u(0,iy,nm1,jx,jy,mzm1) += u(nm1,iy,nm1,jx-1,jy,mzm1)+zfr(0,iy,jx,jy,1)+zfr(nm1,iy,jx-1,jy,1);
+      u(nm1,iy,nm1,jx-1,jy,mzm1) = u(0,iy,nm1,jx,jy,mzm1);
+    } else if ((ix > 0) && (iy > 0)) {
+      u(ix,iy,0,jx,jy,0) += zfr(ix,iy,jx,jy,0);
+      u(ix,iy,nm1,jx,jy,mzm1) += zfr(ix,iy,jx,jy,1);
+    }
+  },stream_[0]);
+
+  gpuFor({nm1},{nm1},{mx},{mz},GPU_LAMBDA(const int ix, const int iz, const int jx, const int jz) {
+    if ((ix == 0) && (iz == 0) && (jx > 0) && (jz == 0)) {
+      u(0,0,0,jx,0,0) += u(nm1,0,0,jx-1,0,0)+xer(0,jx,0)+xer(nm1,jx-1,0)+yfr(0,0,jx,0,0)+yfr(nm1,0,jx-1,0,0)+zfr(0,0,jx,0,0)+zfr(nm1,0,jx-1,0,0);
+      u(nm1,0,0,jx-1,0,0) = u(0,0,0,jx,0,0);
+      u(0,nm1,0,jx,mym1,0) += u(nm1,nm1,0,jx-1,mym1,0)+xer(0,jx,1)+xer(nm1,jx-1,1)+yfr(0,0,jx,0,1)+yfr(nm1,0,jx-1,0,1)+zfr(0,nm1,jx,mym1,0)+zfr(nm1,nm1,jx-1,mym1,0);
+      u(nm1,nm1,0,jx-1,mym1,0) = u(0,nm1,0,jx,mym1,0);
+      u(0,0,nm1,jx,0,mzm1) += u(nm1,0,nm1,jx-1,0,mzm1)+xer(0,jx,2)+xer(nm1,jx-1,2)+yfr(0,nm1,jx,mzm1,0)+yfr(nm1,nm1,jx-1,mzm1,0)+zfr(0,0,jx,0,1)+zfr(nm1,0,jx-1,0,1);
+      u(nm1,0,nm1,jx-1,0,mzm1) = u(0,0,nm1,jx,0,mzm1);
+      u(0,nm1,nm1,jx,mym1,mzm1) += u(nm1,nm1,nm1,jx-1,mym1,mzm1)+xer(0,jx,3)+xer(nm1,jx-1,3)+yfr(0,nm1,jx,mzm1,1)+yfr(nm1,nm1,jx-1,mzm1,1)+zfr(0,nm1,jx,mym1,1)+zfr(nm1,nm1,jx-1,mym1,1);
+      u(nm1,nm1,nm1,jx-1,mym1,mzm1) = u(0,nm1,nm1,jx,mym1,mzm1);
+    } else if ((ix > 0) && (iz == 0) && (jz == 0)) {
+      u(ix,0,0,jx,0,0) += xer(ix,jx,0)+yfr(ix,0,jx,0,0)+zfr(ix,0,jx,0,0);
+      u(ix,nm1,0,jx,mym1,0) += xer(ix,jx,1)+yfr(ix,0,jx,0,1)+zfr(ix,nm1,jx,mym1,0);
+      u(ix,0,nm1,jx,0,mzm1) += xer(ix,jx,2)+yfr(ix,nm1,jx,mzm1,0)+zfr(ix,0,jx,0,1);
+      u(ix,nm1,nm1,jx,mym1,mzm1) += xer(ix,jx,3)+yfr(ix,nm1,jx,mzm1,1)+zfr(ix,nm1,jx,mym1,1);
+    } else if ((ix == 0) && (iz == 0) && (jx > 0) && (jz > 0)) {
+      u(0,0,0,jx,0,jz) += u(nm1,0,0,jx-1,0,jz)+u(0,0,nm1,jx,0,jz-1)+u(nm1,0,nm1,jx-1,0,jz-1)+yfr(0,0,jx,jz,0)+yfr(nm1,0,jx-1,jz,0)+yfr(0,nm1,jx,jz-1,0)+yfr(nm1,nm1,jx-1,jz-1,0);
+      u(nm1,0,0,jx-1,0,jz) = u(0,0,nm1,jx,0,jz-1) = u(nm1,0,nm1,jx-1,0,jz-1) = u(0,0,0,jx,0,jz);
+      u(0,nm1,0,jx,mym1,jz) += u(nm1,nm1,0,jx-1,mym1,jz)+u(0,nm1,nm1,jx,mym1,jz-1)+u(nm1,nm1,nm1,jx-1,mym1,jz-1)+yfr(0,0,jx,jz,1)+yfr(nm1,0,jx-1,jz,1)+yfr(0,nm1,jx,jz-1,1)+yfr(nm1,nm1,jx-1,jz-1,1);
+      u(nm1,nm1,0,jx-1,mym1,jz) = u(0,nm1,nm1,jx,mym1,jz-1) = u(nm1,nm1,nm1,jx-1,mym1,jz-1) = u(0,nm1,0,jx,mym1,jz);
+    } else if ((ix == 0) && (iz > 0) && (jx > 0)) {
+      u(0,0,iz,jx,0,jz) += u(nm1,0,iz,jx-1,0,jz)+yfr(0,iz,jx,jz,0)+yfr(nm1,iz,jx-1,jz,0);
+      u(nm1,0,iz,jx-1,0,jz) = u(0,0,iz,jx,0,jz);
+      u(0,nm1,iz,jx,mym1,jz) += u(nm1,nm1,iz,jx-1,mym1,jz)+yfr(0,iz,jx,jz,1)+yfr(nm1,iz,jx-1,jz,1);
+      u(nm1,nm1,iz,jx-1,mym1,jz) = u(0,nm1,iz,jx,mym1,jz);
+    } else if ((ix > 0) && (iz == 0) && (jz > 0)) {
+      u(ix,0,0,jx,0,jz) += u(ix,0,nm1,jx,0,jz-1)+yfr(ix,0,jx,jz,0)+yfr(ix,nm1,jx,jz-1,0);
+      u(ix,0,nm1,jx,0,jz-1) = u(ix,0,0,jx,0,jz);
+      u(ix,nm1,0,jx,mym1,jz) += u(ix,nm1,nm1,jx,mym1,jz-1)+yfr(ix,0,jx,jz,1)+yfr(ix,nm1,jx,jz-1,1);
+      u(ix,nm1,nm1,jx,mym1,jz-1) = u(ix,nm1,0,jx,mym1,jz);
+    } else if ((ix > 0) && (iz > 0)) {
+      u(ix,0,iz,jx,0,jz) += yfr(ix,iz,jx,jz,0);
+      u(ix,nm1,iz,jx,mym1,jz) += yfr(ix,iz,jx,jz,1);
+    }
+  },stream_[0]);
+
+  gpuFor({nm1},{nm1},{my},{mz},GPU_LAMBDA(const int iy, const int iz, const int jy, const int jz) {
+    if ((iy == 0) && (iz == 0) && (jy == 0) && (jz == 0)) {
+      u(0,0,0,0,0,0) += cornerr(0,0)+xer(0,0,0)+yer(0,0,0)+zer(0,0,0)+xfr(0,0,0,0,0)+yfr(0,0,0,0,0)+zfr(0,0,0,0,0);
+      u(nm1,0,0,mxm1,0,0) += cornerr(0,1)+xer(nm1,mxm1,0)+yer(0,0,1)+zer(0,0,1)+xfr(0,0,0,0,1)+yfr(nm1,0,mxm1,0,0)+zfr(nm1,0,mxm1,0,0);
+      u(0,nm1,0,0,mym1,0) += cornerr(0,2)+xer(0,0,1)+yer(nm1,mym1,0)+zer(0,0,2)+xfr(nm1,0,mym1,0,0)+yfr(0,0,0,0,1)+zfr(0,nm1,0,mym1,0);
+      u(nm1,nm1,0,mxm1,mym1,0) += cornerr(0,3)+xer(nm1,mxm1,1)+yer(nm1,mym1,1)+zer(0,0,3)+xfr(nm1,0,mym1,0,1)+yfr(nm1,0,mxm1,0,1)+zfr(nm1,nm1,mxm1,mym1,0);
+      u(0,0,nm1,0,0,mzm1) += cornerr(0,4)+xer(0,0,2)+yer(0,0,2)+zer(nm1,mzm1,0)+xfr(0,nm1,0,mzm1,0)+yfr(0,nm1,0,mzm1,0)+zfr(0,0,0,0,1);
+      u(nm1,0,nm1,mxm1,0,mzm1) += cornerr(0,5)+xer(nm1,mxm1,2)+yer(0,0,3)+zer(nm1,mzm1,1)+xfr(0,nm1,0,mzm1,1)+yfr(nm1,nm1,mxm1,mzm1,0)+zfr(nm1,0,mxm1,0,1);
+      u(0,nm1,nm1,0,mym1,mzm1) += cornerr(0,6)+xer(0,0,3)+yer(nm1,mym1,2)+zer(nm1,mzm1,2)+xfr(nm1,nm1,mym1,mzm1,0)+yfr(0,nm1,0,mzm1,1)+zfr(0,nm1,0,mym1,1);
+      u(nm1,nm1,nm1,mxm1,mym1,mzm1) += cornerr(0,7)+xer(nm1,mxm1,3)+yer(nm1,mym1,3)+zer(nm1,mzm1,3)+xfr(nm1,nm1,mym1,mzm1,1)+yfr(nm1,nm1,mxm1,mzm1,1)+zfr(nm1,nm1,mxm1,mym1,1);
+    } else if ((iy == 0) && (iz == 0) && (jy == 0) && (jz > 0)) {
+      u(0,0,0,0,0,jz) += u(0,0,nm1,0,0,jz-1)+xfr(0,0,0,jz,0)+xfr(0,nm1,0,jz-1,0)+yfr(0,0,0,jz,0)+yfr(0,nm1,0,jz-1,0)+zer(0,jz,0)+zer(nm1,jz-1,0);
+      u(0,0,nm1,0,0,jz-1) = u(0,0,0,0,0,jz);
+      u(nm1,0,0,mxm1,0,jz) += u(nm1,0,nm1,mxm1,0,jz-1)+xfr(0,0,0,jz,1)+xfr(0,nm1,0,jz-1,1)+yfr(nm1,0,mxm1,jz,0)+yfr(nm1,nm1,mxm1,jz-1,0)+zer(0,jz,1)+zer(nm1,jz-1,1);
+      u(nm1,0,nm1,mxm1,0,jz-1) = u(nm1,0,0,mxm1,0,jz);
+      u(0,nm1,0,0,mym1,jz) += u(0,nm1,nm1,0,mym1,jz-1)+xfr(nm1,0,mym1,jz,0)+xfr(nm1,nm1,mym1,jz-1,0)+yfr(0,0,0,jz,1)+yfr(0,nm1,0,jz-1,1)+zer(0,jz,2)+zer(nm1,jz-1,2);
+      u(0,nm1,nm1,0,mym1,jz-1) = u(0,nm1,0,0,mym1,jz);
+      u(nm1,nm1,0,mxm1,mym1,jz) += u(nm1,nm1,nm1,mxm1,mym1,jz-1)+xfr(nm1,0,mym1,jz,1)+xfr(nm1,nm1,mym1,jz-1,1)+yfr(nm1,0,mxm1,jz,1)+yfr(nm1,nm1,mxm1,jz-1,1)+zer(0,jz,3)+zer(nm1,jz-1,3);
+      u(nm1,nm1,nm1,mxm1,mym1,jz-1) = u(nm1,nm1,0,mxm1,mym1,jz);
+    } else if ((iy == 0) && (iz == 0) && (jy > 0) && (jz == 0)) {
+      u(0,0,0,0,jy,0) += u(0,nm1,0,0,jy-1,0)+xfr(0,0,jy,0,0)+xfr(nm1,0,jy-1,0,0)+yer(0,jy,0)+yer(nm1,jy-1,0)+zfr(0,0,0,jy,0)+zfr(0,nm1,0,jy-1,0);
+      u(0,nm1,0,0,jy-1,0) = u(0,0,0,0,jy,0);
+      u(nm1,0,0,mxm1,jy,0) += u(nm1,nm1,0,mxm1,jy-1,0)+xfr(0,0,jy,0,1)+xfr(nm1,0,jy-1,0,1)+yer(0,jy,1)+yer(nm1,jy-1,1)+zfr(nm1,0,mxm1,jy,0)+zfr(nm1,nm1,mxm1,jy-1,0);
+      u(nm1,nm1,0,mxm1,jy-1,0) = u(nm1,0,0,mxm1,jy,0);
+      u(0,0,nm1,0,jy,mzm1) += u(0,nm1,nm1,0,jy-1,mzm1)+xfr(0,nm1,jy,mzm1,0)+xfr(nm1,nm1,jy-1,mzm1,0)+yer(0,jy,2)+yer(nm1,jy-1,2)+zfr(0,0,0,jy,1)+zfr(0,nm1,0,jy-1,1);
+      u(0,nm1,nm1,0,jy-1,mzm1) = u(0,0,nm1,0,jy,mzm1);
+      u(nm1,0,nm1,mxm1,jy,mzm1) += u(nm1,nm1,nm1,mxm1,jy-1,mzm1)+xfr(0,nm1,jy,mzm1,1)+xfr(nm1,nm1,jy-1,mzm1,1)+yer(0,jy,3)+yer(nm1,jy-1,3)+zfr(nm1,0,mxm1,jy,1)+zfr(nm1,nm1,mxm1,jy-1,1);
+      u(nm1,nm1,nm1,mxm1,jy-1,mzm1) = u(nm1,0,nm1,mxm1,jy,mzm1);
+    } else if ((iy == 0) && (iz > 0) && (jy == 0)) {
+      u(0,0,iz,0,0,jz) += xfr(0,iz,0,jz,0)+yfr(0,iz,0,jz,0)+zer(iz,jz,0);
+      u(nm1,0,iz,mxm1,0,jz) += xfr(0,iz,0,jz,1)+yfr(nm1,iz,mxm1,jz,0)+zer(iz,jz,1);
+      u(0,nm1,iz,0,mym1,jz) += xfr(nm1,iz,mym1,jz,0)+yfr(0,iz,0,jz,1)+zer(iz,jz,2);
+      u(nm1,nm1,iz,mxm1,mym1,jz) += xfr(nm1,iz,mym1,jz,1)+yfr(nm1,iz,mxm1,jz,1)+zer(iz,jz,3);
+    } else if ((iy > 0) && (iz == 0) && (jz == 0)) { 
+      u(0,iy,0,0,jy,0) += xfr(iy,0,jy,0,0)+yer(iy,jy,0)+zfr(0,iy,0,jy,0);
+      u(nm1,iy,0,mxm1,jy,0) += xfr(iy,0,jy,0,1)+yer(iy,jy,1)+zfr(nm1,iy,mxm1,jy,0);
+      u(0,iy,nm1,0,jy,mzm1) += xfr(iy,nm1,jy,mzm1,0)+yer(iy,jy,2)+zfr(0,iy,0,jy,1);
+      u(nm1,iy,nm1,mxm1,jy,mzm1) += xfr(iy,nm1,jy,mzm1,1)+yer(iy,jy,3)+zfr(nm1,iy,mxm1,jy,1);
+    } else if ((iy == 0) && (iz == 0) && (jy > 0) && (jz > 0)) {
+      u(0,0,0,0,jy,jz) += u(0,nm1,0,0,jy-1,jz)+u(0,0,nm1,0,jy,jz-1)+u(0,nm1,nm1,0,jy-1,jz-1)+xfr(0,0,jy,jz,0)+xfr(nm1,0,jy-1,jz,0)+xfr(0,nm1,jy,jz-1,0)+xfr(nm1,nm1,jy-1,jz-1,0);
+      u(0,nm1,0,0,jy-1,jz) = u(0,0,nm1,0,jy,jz-1) = u(0,nm1,nm1,0,jy-1,jz-1) = u(0,0,0,0,jy,jz);
+      u(nm1,0,0,mxm1,jy,jz) += u(nm1,nm1,0,mxm1,jy-1,jz)+u(nm1,0,nm1,mxm1,jy,jz-1)+u(nm1,nm1,nm1,mxm1,jy-1,jz-1)+xfr(0,0,jy,jz,1)+xfr(nm1,0,jy-1,jz,1)+xfr(0,nm1,jy,jz-1,1)+xfr(nm1,nm1,jy-1,jz-1,1);
+      u(nm1,nm1,0,mxm1,jy-1,jz) = u(nm1,0,nm1,mxm1,jy,jz-1) = u(nm1,nm1,nm1,mxm1,jy-1,jz-1) = u(nm1,0,0,mxm1,jy,jz);
+    } else if ((iy > 0) && (iz == 0) && (jz > 0)) {
+      u(0,iy,0,0,jy,jz) += u(0,iy,nm1,0,jy,jz-1)+xfr(iy,0,jy,jz,0)+xfr(iy,nm1,jy,jz-1,0);
+      u(0,iy,nm1,0,jy,jz-1) = u(0,iy,0,0,jy,jz);
+      u(nm1,iy,0,mxm1,jy,jz) += u(nm1,iy,nm1,mxm1,jy,jz-1)+xfr(iy,0,jy,jz,1)+xfr(iy,nm1,jy,jz-1,1);
+      u(nm1,iy,nm1,mxm1,jy,jz-1) = u(nm1,iy,0,mxm1,jy,jz);
+    } else if ((iy == 0) && (iz > 0) && (jy > 0)) {
+      u(0,0,iz,0,jy,jz) += u(0,nm1,iz,0,jy-1,jz)+xfr(0,iz,jy,jz,0)+xfr(nm1,iz,jy-1,jz,0);
+      u(0,nm1,iz,0,jy-1,jz) = u(0,0,iz,0,jy,jz);
+      u(nm1,0,iz,mxm1,jy,jz) += u(nm1,nm1,iz,mxm1,jy-1,jz)+xfr(0,iz,jy,jz,1)+xfr(nm1,iz,jy-1,jz,1);
+      u(nm1,nm1,iz,mxm1,jy-1,jz) = u(nm1,0,iz,mxm1,jy,jz);
+    } else if ((iy > 0) && (iz > 0)) {
+      u(0,iy,iz,0,jy,jz) += xfr(iy,iz,jy,jz,0);
+      u(nm1,iy,iz,mxm1,jy,jz) += xfr(iy,iz,jy,jz,1);
+    }
+  },stream_[0]);
+
+#endif
 
   // finish sends
 
