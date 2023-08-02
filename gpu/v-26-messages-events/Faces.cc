@@ -482,5 +482,6 @@ void Faces::share(Double6D &u, const bool compute)
   // finish sends
 
   MPI_Waitall(26,reqs_,MPI_STATUSES_IGNORE);
-  CHECK(gpuDeviceSynchronize());
+  CHECK(gpuStreamSynchronize(stream_[1]));
+  CHECK(gpuStreamSynchronize(stream_[0]));
 }

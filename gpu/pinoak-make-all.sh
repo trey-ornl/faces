@@ -21,6 +21,8 @@ build () {
   make -j
 }
 
+rm -f pinoak-faces-*
+
 unset CPPFLAGS
 build v-6-messages-basic
 
@@ -48,8 +50,8 @@ build v-26-messages -fused
 export CPPFLAGS='-DFUSE_SEND -DFUSE_INNER'
 build v-26-messages -send-inner
 
-export CPPFLAGS='-DFUSE_SEND -DFUSE_INNER'
-build v-26-messages-stream-synch -send-inner
+export CPPFLAGS='-DFUSE_SEND -DFUSE_INNER -DFUSE_RECV'
+build v-26-messages-device-sync -fused
 
 export CPPFLAGS='-DFUSE_INNER'
 build v-26-messages-events -inner
