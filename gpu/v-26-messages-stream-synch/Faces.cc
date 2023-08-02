@@ -412,11 +412,13 @@ void Faces::share(Double6D &u, const bool compute)
   MPI_Isend(corners.data(0,6),1,MPI_DOUBLE,icorner_[6],tag,MPI_COMM_WORLD,reqs_+24);
   MPI_Isend(corners.data(0,7),1,MPI_DOUBLE,icorner_[7],tag,MPI_COMM_WORLD,reqs_+25);
 
+  // recv all
+
+  MPI_Waitall(26,reqr_,MPI_STATUSES_IGNORE);
+
   // compute faces, edges, and corners
  
 #ifdef FUSE_RECV
-
-  MPI_Waitall(26,reqr_,MPI_STATUSES_IGNORE);
 
   gpuFor({nm1},{nm1},{std::max(mx,my)},{std::max(my,mz)},GPU_LAMBDA(const int ia, const int ib, const int ja, const int jb) {
     if ((ja < mx) && (jb < my)) {
@@ -549,8 +551,6 @@ void Faces::share(Double6D &u, const bool compute)
 
 #else
 
-  MPI_Waitall(2,reqr_,MPI_STATUSES_IGNORE);
-
   gpuFor({nm1},{nm1},{mx},{my},GPU_LAMBDA(const int ix, const int iy, const int jx, const int jy) {
     if ((ix == 0) && (iy == 0) && (jx > 0) && (jy > 0)) {
       u(0,0,0,jx,jy,0) += u(nm1,0,0,jx-1,jy,0)+u(0,nm1,0,jx,jy-1,0)+u(nm1,nm1,0,jx-1,jy-1,0)+zfr(0,0,jx,jy,0)+zfr(nm1,0,jx-1,jy,0)+zfr(0,nm1,jx,jy-1,0)+zfr(nm1,nm1,jx-1,jy-1,0);
@@ -572,8 +572,6 @@ void Faces::share(Double6D &u, const bool compute)
       u(ix,iy,nm1,jx,jy,mzm1) += zfr(ix,iy,jx,jy,1);
     }
   },stream_[0]);
-
-  MPI_Waitall(6,reqr_+2,MPI_STATUSES_IGNORE);
 
   gpuFor({nm1},{nm1},{mx},{mz},GPU_LAMBDA(const int ix, const int iz, const int jx, const int jz) {
     if ((ix == 0) && (iz == 0) && (jx > 0) && (jz == 0)) {
@@ -610,8 +608,6 @@ void Faces::share(Double6D &u, const bool compute)
       u(ix,nm1,iz,jx,mym1,jz) += yfr(ix,iz,jx,jz,1);
     }
   },stream_[0]);
-
-  MPI_Waitall(18,reqr_+8,MPI_STATUSES_IGNORE);
 
   gpuFor({nm1},{nm1},{my},{mz},GPU_LAMBDA(const int iy, const int iz, const int jy, const int jz) {
     if ((iy == 0) && (iz == 0) && (jy == 0) && (jz == 0)) {
@@ -677,5 +673,6 @@ void Faces::share(Double6D &u, const bool compute)
   // finish sends
 
   MPI_Waitall(26,reqs_,MPI_STATUSES_IGNORE);
-  CHECK(gpuDeviceSynchronize());
+  CHECK(gpuStreamSynchronize(stream_[1]));
+  CHECK(gpuStreamSynchronize(stream_[0]));
 }

@@ -1,5 +1,8 @@
 .*
 *.o
-frontier-faces
-pinoak-faces
+frontier-faces*
+MPICH_RANK_ORDER
+pinoak-faces*
+slurm-*.out
 summit-faces*
+typescript

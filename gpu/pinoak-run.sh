@@ -13,3 +13,4 @@ export MPICH_OFI_NIC_POLICY=GPU
 export MPICH_GPU_SUPPORT_ENABLED=1
 #export MPICH_ENV_DISPLAY=1
 echo "$1 $2 $3 15 14 13 12 10 10 100" | srun -K --exclusive -u -p bardpeak -t 1:00 -c ${OMP_NUM_THREADS} -N ${NODES} -n ${TASKS} ${EXE}
+echo "$1 $2 $3 105 104 103 12 3 1 10" | srun -K --exclusive -u -p bardpeak -t 5:00 -c ${OMP_NUM_THREADS} -N ${NODES} -n ${TASKS} ${EXE}

@@ -10,6 +10,6 @@ export LD=CC
 export LDFLAGS="-g -O3 -std=c++17 -Wall -fopenmp"
 export LIBS="-L${ROCM_PATH}/lib -lamdhip64"
 export EXE=pinoak-faces
-make clean
+#make clean
 make -j
 ldd "${EXE}" | grep -e mpi -e gtl -e amd -e mp
