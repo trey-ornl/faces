@@ -1,5 +1,6 @@
 .*
 *.o
+core
 frontier-faces*
 MPICH_RANK_ORDER
 pinoak-faces*

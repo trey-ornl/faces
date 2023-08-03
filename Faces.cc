@@ -153,99 +153,55 @@ void Faces::share(Double6D &u, const bool compute)
 
 #ifdef FUSE_Z
 
-  gpuFor({1,nm1},{1,nm1},{mx},{my},{mz},GPU_LAMBDA(const int ia, const int ib, const int jx, const int jy, const int jz) {
-    if (jz == 0) u(ia,ib,0,jx,jy,0) += zfr(ia,ib,jx,jy,0);
-    if (jz == mzm1) u(ia,ib,nm1,jx,jy,mzm1) += zfr(ia,ib,jx,jy,1);
-    if (ib == 1) {
-      if (jz == 0) {
-        u(0,ia,0,jx,jy,0) += zfr(0,ia,jx,jy,0);
-        u(nm1,ia,0,jx,jy,0) += zfr(nm1,ia,jx,jy,0);
-        u(ia,0,0,jx,jy,0) += zfr(ia,0,jx,jy,0);
-        u(ia,nm1,0,jx,jy,0) += zfr(ia,nm1,jx,jy,0);
-      }
-      if (jz == mzm1) {
-        u(0,ia,nm1,jx,jy,mzm1) += zfr(0,ia,jx,jy,1);
-        u(nm1,ia,nm1,jx,jy,mzm1) += zfr(nm1,ia,jx,jy,1);
-        u(ia,0,nm1,jx,jy,mzm1) += zfr(ia,0,jx,jy,1);
-        u(ia,nm1,nm1,jx,jy,mzm1) += zfr(ia,nm1,jx,jy,1);
-      }
-      if (ia == 1) {
-        if (jz == 0) {
-          u(0,0,0,jx,jy,0) += zfr(0,0,jx,jy,0);
-          u(nm1,0,0,jx,jy,0) += zfr(nm1,0,jx,jy,0);
-          u(0,nm1,0,jx,jy,0) += zfr(0,nm1,jx,jy,0);
-          u(nm1,nm1,0,jx,jy,0) += zfr(nm1,nm1,jx,jy,0);
-        }
-        if (jz == mzm1) {
-          u(0,0,nm1,jx,jy,mzm1) += zfr(0,0,jx,jy,1);
-          u(nm1,0,nm1,jx,jy,mzm1) += zfr(nm1,0,jx,jy,1);
-          u(0,nm1,nm1,jx,jy,mzm1) += zfr(0,nm1,jx,jy,1);
-          u(nm1,nm1,nm1,jx,jy,mzm1) += zfr(nm1,nm1,jx,jy,1);
-        }
-      }
+  gpuFor({n},{n},{mx},{my},{mz},GPU_LAMBDA(const int ia, const int ib, const int jx, const int jy, const int jz) {
+    if ((jy < mym1) && (ib == 0)) {
+      if (jz == 0) u(ia,0,0,jx,jy+1,0) += zfr(ia,0,jx,jy+1,0);
     }
-  });
-
-  gpuFor({1,nm1},{1,nm1},{mx},{my},{mz},GPU_LAMBDA(const int ia, const int ib, const int jx, const int jy, const int jz) {
+    if ((jy < mym1) && (ib == nm1)) {
+      if (jz == mzm1) u(ia,0,nm1,jx,jy+1,mzm1) += zfr(ia,0,jx,jy+1,1);
+    }
+    if ((jy == 0) || (ib < nm1)) {
+      if (jz == 0) u(ia,nm1-ib,0,jx,jy,0) += zfr(ia,nm1-ib,jx,jy,0);
+    }
+    if ((jy == 0) || (ib > 0)) {
+      if (jz == mzm1) u(ia,ib,nm1,jx,jy,mzm1) += zfr(ia,ib,jx,jy,1);
+    }
     if (jy < mym1) {
       u(ia,nm1,ib,jx,jy,jz) += u(ia,0,ib,jx,jy+1,jz);
       u(ia,0,ib,jx,jy+1,jz) = u(ia,nm1,ib,jx,jy,jz);
     }
-    if (ib == 1) {
-      if (jy < mym1) {
-        u(0,nm1,ia,jx,jy,jz) += u(0,0,ia,jx,jy+1,jz);
-        u(0,0,ia,jx,jy+1,jz) = u(0,nm1,ia,jx,jy,jz);
-        u(nm1,nm1,ia,jx,jy,jz) += u(nm1,0,ia,jx,jy+1,jz);
-        u(nm1,0,ia,jx,jy+1,jz) = u(nm1,nm1,ia,jx,jy,jz);
-        u(ia,nm1,0,jx,jy,jz) += u(ia,0,0,jx,jy+1,jz);
-        u(ia,0,0,jx,jy+1,jz) = u(ia,nm1,0,jx,jy,jz);
-        u(ia,nm1,nm1,jx,jy,jz) += u(ia,0,nm1,jx,jy+1,jz);
-        u(ia,0,nm1,jx,jy+1,jz) = u(ia,nm1,nm1,jx,jy,jz);
+    if ((jz == mzm1) && (ia == nm1)) {
+      if ((jy == 0) || (ib > 0)) {
+        if (jx == 0) xfs(ib,nm1,jy,jz,0) = u(0,ib,nm1,0,jy,jz);
+        if (jx == mxm1) xfs(ib,nm1,jy,jz,1) = u(nm1,ib,nm1,mxm1,jy,jz);
       }
-      if (ia == 1) {
-        if (jy < mym1) {
-          u(0,nm1,0,jx,jy,jz) += u(0,0,0,jx,jy+1,jz);
-          u(0,0,0,jx,jy+1,jz) = u(0,nm1,0,jx,jy,jz);
-          u(0,nm1,nm1,jx,jy,jz) += u(0,0,nm1,jx,jy+1,jz);
-          u(0,0,nm1,jx,jy+1,jz) = u(0,nm1,nm1,jx,jy,jz);
-          u(nm1,nm1,0,jx,jy,jz) += u(nm1,0,0,jx,jy+1,jz);
-          u(nm1,0,0,jx,jy+1,jz) = u(nm1,nm1,0,jx,jy,jz);
-          u(nm1,nm1,nm1,jx,jy,jz) += u(nm1,0,nm1,jx,jy+1,jz);
-          u(nm1,0,nm1,jx,jy+1,jz) = u(nm1,nm1,nm1,jx,jy,jz);
-        }
+      if ((jy < mym1) && (ib == nm1)) {
+        if (jx == 0) xfs(0,nm1,jy+1,jz,0) = u(0,0,nm1,0,jy+1,jz);
+        if (jx == mxm1) xfs(0,nm1,jy+1,jz,1) = u(nm1,0,nm1,mxm1,jy+1,jz);
       }
     }
-  });
-
-  gpuFor({1,nm1},{1,nm1},{mx},{my},{mz},GPU_LAMBDA(const int ia, const int ib, const int jx, const int jy, const int jz) {
-    if (jx == 0) xfs(ia,ib,jy,jz,0) = u(0,ia,ib,0,jy,jz);
-    if (jx == mxm1) xfs(ia,ib,jy,jz,1) = u(nm1,ia,ib,mxm1,jy,jz);
-    if (ib == 1) {
-      if (jx == 0) {
-        xfs(ia,0,jy,jz,0) = u(0,ia,0,0,jy,jz);
-        xfs(ia,nm1,jy,jz,0) = u(0,ia,nm1,0,jy,jz);
-        xfs(0,ia,jy,jz,0) = u(0,0,ia,0,jy,jz);
-        xfs(nm1,ia,jy,jz,0) = u(0,nm1,ia,0,jy,jz);
+    if ((jz == 0) && (ia == 0)) {
+      if ((jy == 0) || (ib < nm1)) {
+        if (jx == 0) xfs(nm1-ib,0,jy,jz,0) = u(0,nm1-ib,0,0,jy,jz);
+        if (jx == mxm1) xfs(nm1-ib,0,jy,jz,1) = u(nm1,nm1-ib,0,mxm1,jy,jz);
       }
-      if (jx == mxm1) {
-        xfs(ia,0,jy,jz,1) = u(nm1,ia,0,mxm1,jy,jz);
-        xfs(ia,nm1,jy,jz,1) = u(nm1,ia,nm1,mxm1,jy,jz);
-        xfs(0,ia,jy,jz,1) = u(nm1,0,ia,mxm1,jy,jz);
-        xfs(nm1,ia,jy,jz,1) = u(nm1,nm1,ia,mxm1,jy,jz);
+      if ((jy < mym1) && (ib == 0)) {
+        if (jx == 0) xfs(0,0,jy+1,jz,0) = u(0,0,0,0,jy+1,jz);
+        if (jx == mxm1) xfs(0,0,jy+1,jz,1) = u(nm1,0,0,mxm1,jy+1,jz);
       }
-      if (ia == 1) {
-        if (jx == 1) {
-          xfs(0,0,jy,jz,0) = u(0,0,0,0,jy,jz);
-          xfs(nm1,nm1,jy,jz,0) = u(0,nm1,nm1,0,jy,jz);
-          xfs(0,nm1,jy,jz,0) = u(0,0,nm1,0,jy,jz);
-          xfs(nm1,0,jy,jz,0) = u(0,nm1,0,0,jy,jz);
-        }
-        if (jx == mxm1) {
-          xfs(0,0,jy,jz,1) = u(nm1,0,0,mxm1,jy,jz);
-          xfs(nm1,nm1,jy,jz,1) = u(nm1,nm1,nm1,mxm1,jy,jz);
-          xfs(0,nm1,jy,jz,1) = u(nm1,0,nm1,mxm1,jy,jz);
-          xfs(nm1,0,jy,jz,1) = u(nm1,nm1,0,mxm1,jy,jz);
-        }
+    }
+    if (((jz > 0) || (ib > 0)) && ((jz < mzm1) || (ib < nm1))) {
+      if ((jy == 0) || (ia < nm1)) {
+        if (jx == 0) xfs(nm1-ia,ib,jy,jz,0) = u(0,nm1-ia,ib,0,jy,jz);
+      }
+      if ((jy == 0) || (ia > 0)) {
+        if (jx == mxm1) xfs(ia,ib,jy,jz,1) = u(nm1,ia,ib,mxm1,jy,jz);
+      }
+      if ((jy < mym1) && (ia == 0)) {
+        if (jx == 0) xfs(0,ib,jy+1,jz,0) = u(0,0,ib,0,jy+1,jz);
+      }
+      if ((jy < mym1) && (ia == nm1)) {
+        if (jx == mxm1) xfs(0,ib,jy+1,jz,1) = u(nm1,0,ib,mxm1,jy+1,jz);
       }
     }
   });
@@ -325,5 +281,5 @@ void Faces::share(Double6D &u, const bool compute)
   });
 
   MPI_Waitall(6,reqs_,MPI_STATUSES_IGNORE);
-  CHECK(gpuStreamSynchronize(0));
+  CHECK(gpuDeviceSynchronize());
 }
