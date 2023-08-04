@@ -9,6 +9,7 @@ export CXXFLAGS="-g --offload-arch=gfx90a -O3 -std=c++17 -Wall -fopenmp -I${CRAY
 export LD=hipcc
 export LDFLAGS="-g -O3 -std=c++17 -Wall -fopenmp"
 export LIBS="-L${MPICH_DIR}/lib -lmpi ${CRAY_XPMEM_POST_LINK_OPTS} -lxpmem ${PE_MPICH_GTL_DIR_amd_gfx90a} ${PE_MPICH_GTL_LIBS_amd_gfx90a} -L${ROCM_PATH}/lib -lamdhip64"
+export CPPFLAGS=-DFUSE_INNER
 export EXE=frontier-faces
 make clean
 make -j

@@ -172,74 +172,6 @@ void Faces::share(Double6D &u, const bool compute)
 
   // copy send messages
 
-#ifdef FUSE_SEND
-
-  gpuFor({n},{n},{std::max(mx,my)},{std::max(my,mz)},GPU_LAMBDA(const int ia, const int ib, const int ja, const int jb) {
-    if ((ja < mx) && (jb < my)) {
-      const int ix = ia;
-      const int iy = ib;
-      const int jx = ja;
-      const int jy = jb;
-      zfs(ix,iy,jx,jy,0) = u(ix,iy,0,jx,jy,0);
-      zfs(ix,iy,jx,jy,1) = u(ix,iy,nm1,jx,jy,mzm1);
-      if ((iy == 0) && (jy == 0)) {
-        xes(ix,jx,0) = u(ix,0,0,jx,0,0);
-        xes(ix,jx,2) = u(ix,0,nm1,jx,0,mzm1);
-      } else if ((iy == nm1) && (jy == mym1)) {
-        xes(ix,jx,1) = u(ix,nm1,0,jx,mym1,0);
-        xes(ix,jx,3) = u(ix,nm1,nm1,jx,mym1,mzm1);
-      }
-      if ((ix == 0) && (jx == 0)) {
-        yes(iy,jy,0) = u(0,iy,0,0,jy,0);
-        yes(iy,jy,2) = u(0,iy,nm1,0,jy,mzm1);
-      } else if ((ix == nm1) && (jx == mxm1)) {
-        yes(iy,jy,1) = u(nm1,iy,0,mxm1,jy,0);
-        yes(iy,jy,3) = u(nm1,iy,nm1,mxm1,jy,mzm1);
-      }
-      if ((ix == 0) && (iy == 0) && (jx == 0) && (jy == 0)) {
-        corners(0,0) = u(0,0,0,0,0,0);
-        corners(0,4) = u(0,0,nm1,0,0,mzm1);
-      }
-      if ((ix == nm1) && (iy == 0) && (jx == mxm1) && (jy == 0)) {
-        corners(0,1) = u(nm1,0,0,mxm1,0,0);
-        corners(0,5) = u(nm1,0,nm1,mxm1,0,mzm1);
-      }
-      if ((ix == 0) && (iy == nm1) && (jx == 0) && (jy == mym1)) {
-        corners(0,2) = u(0,nm1,0,0,mym1,0);
-        corners(0,6) = u(0,nm1,nm1,0,mym1,mzm1);
-      }
-      if ((ix == nm1) && (iy == nm1) && (jx == mxm1) && (jy == mym1)) {
-        corners(0,3) = u(nm1,nm1,0,mxm1,mym1,0);
-        corners(0,7) = u(nm1,nm1,nm1,mxm1,mym1,mzm1);
-      }
-    }
-    if ((ja < mx) && (jb < mz)) {
-      const int ix = ia;
-      const int iz = ib;
-      const int jx = ja;
-      const int jz = jb;
-      yfs(ix,iz,jx,jz,0) = u(ix,0,iz,jx,0,jz);
-      yfs(ix,iz,jx,jz,1) = u(ix,nm1,iz,jx,mym1,jz);
-      if ((ix == 0) && (jx == 0)) {
-        zes(iz,jz,0) = u(0,0,iz,0,0,jz);
-        zes(iz,jz,2) = u(0,nm1,iz,0,mym1,jz);
-      } else if ((ix == nm1) && (jx == mxm1)) {
-        zes(iz,jz,1) = u(nm1,0,iz,mxm1,0,jz);
-        zes(iz,jz,3) = u(nm1,nm1,iz,mxm1,mym1,jz);
-      }
-    }
-    if ((ja < my) && (jb < mz)) {
-      const int iy = ia;
-      const int iz = ib;
-      const int jy = ja;
-      const int jz = jb;
-      xfs(iy,iz,jy,jz,0) = u(0,iy,iz,0,jy,jz);
-      xfs(iy,iz,jy,jz,1) = u(nm1,iy,iz,mxm1,jy,jz);
-    }
-  },stream_[0]);
-
-#else
-
   gpuFor({n},{n},{mx},{my},GPU_LAMBDA(const int ix, const int iy, const int jx, const int jy) {
     zfs(ix,iy,jx,jy,0) = u(ix,iy,0,jx,jy,0);
     zfs(ix,iy,jx,jy,1) = u(ix,iy,nm1,jx,jy,mzm1);
@@ -285,14 +217,12 @@ void Faces::share(Double6D &u, const bool compute)
       zes(iz,jz,1) = u(nm1,0,iz,mxm1,0,jz);
       zes(iz,jz,3) = u(nm1,nm1,iz,mxm1,mym1,jz);
     }
-  },stream_[0]);
+  },stream_[1]);
 
   gpuFor({n},{n},{my},{mz},GPU_LAMBDA(const int iy, const int iz, const int jy, const int jz) {
     xfs(iy,iz,jy,jz,0) = u(0,iy,iz,0,jy,jz);
     xfs(iy,iz,jy,jz,1) = u(nm1,iy,iz,mxm1,jy,jz);
-  },stream_[0]);
-
-#endif
+  },stream_[2]);
 
   // compute internal faces, edges, and corners
   
@@ -340,7 +270,7 @@ void Faces::share(Double6D &u, const bool compute)
           u(nm1,0,0,jx-1,jy,jz) = u(0,nm1,0,jx,jy-1,jz) = u(nm1,nm1,0,jx-1,jy-1,jz) = u(0,0,nm1,jx,jy,jz-1) = u(nm1,0,nm1,jx-1,jy,jz-1) = u(0,nm1,nm1,jx,jy-1,jz-1) = u(nm1,nm1,nm1,jx-1,jy-1,jz-1) = u(0,0,0,jx,jy,jz);
         }
       }
-    },stream_[1]);
+    },stream_[3]);
 
 #else
 
@@ -355,7 +285,7 @@ void Faces::share(Double6D &u, const bool compute)
           u(nm1,0,0,jx-1,jy,jz) = u(0,nm1,0,jx,jy-1,jz) = u(nm1,nm1,0,jx-1,jy-1,jz) = u(0,0,nm1,jx,jy,jz-1) = u(nm1,0,nm1,jx-1,jy,jz-1) = u(0,nm1,nm1,jx,jy-1,jz-1) = u(nm1,nm1,nm1,jx-1,jy-1,jz-1) = u(0,0,0,jx,jy,jz);
         }
       }
-    },stream_[1]);
+    },stream_[3]);
 
     gpuFor({1,nm1},{1,nm1},{mx},{1,my},{mz},GPU_LAMBDA(const int ix, const int iz, const int jx, const int jy, const int jz) {
       u(ix,0,iz,jx,jy,jz) += u(ix,nm1,iz,jx,jy-1,jz);
@@ -364,7 +294,7 @@ void Faces::share(Double6D &u, const bool compute)
         u(ix,0,0,jx,jy,jz) += u(ix,nm1,0,jx,jy-1,jz)+u(ix,0,nm1,jx,jy,jz-1)+u(ix,nm1,nm1,jx,jy-1,jz-1);
         u(ix,nm1,0,jx,jy-1,jz) = u(ix,0,nm1,jx,jy,jz-1) = u(ix,nm1,nm1,jx,jy-1,jz-1) = u(ix,0,0,jx,jy,jz);
       }
-    },stream_[1]);
+    },stream_[3]);
 
     gpuFor({1,nm1},{1,nm1},{1,mx},{my},{mz},GPU_LAMBDA(const int iy, const int iz, const int jx, const int jy, const int jz) {
       u(0,iy,iz,jx,jy,jz) += u(nm1,iy,iz,jx-1,jy,jz);
@@ -373,36 +303,25 @@ void Faces::share(Double6D &u, const bool compute)
         u(0,0,iz,jx,jy,jz) += u(nm1,0,iz,jx-1,jy,jz)+u(0,nm1,iz,jx,jy-1,jz)+u(nm1,nm1,iz,jx-1,jy-1,jz);
         u(nm1,0,iz,jx-1,jy,jz) = u(0,nm1,iz,jx,jy-1,jz) = u(nm1,nm1,iz,jx-1,jy-1,jz) = u(0,0,iz,jx,jy,jz);
       }
-    },stream_[1]);
+    },stream_[3]);
 
 #endif
 
   }
 
-  // send in use order
+  // order requests by use at receviers
 
   CHECK(gpuStreamSynchronize(stream_[0]));
-
   MPI_Isend(zfs.data(0,0,0,0,0),nface_[2],MPI_DOUBLE,iface_[4],tag,MPI_COMM_WORLD,reqs_+0);
   MPI_Isend(zfs.data(0,0,0,0,1),nface_[2],MPI_DOUBLE,iface_[5],tag,MPI_COMM_WORLD,reqs_+1);
-
-  MPI_Isend(yfs.data(0,0,0,0,0),nface_[1],MPI_DOUBLE,iface_[2],tag,MPI_COMM_WORLD,reqs_+2);
-  MPI_Isend(yfs.data(0,0,0,0,1),nface_[1],MPI_DOUBLE,iface_[3],tag,MPI_COMM_WORLD,reqs_+3);
   MPI_Isend(xes.data(0,0,0),nedge_[0],MPI_DOUBLE,iedge_[0],tag,MPI_COMM_WORLD,reqs_+4);
   MPI_Isend(xes.data(0,0,1),nedge_[0],MPI_DOUBLE,iedge_[1],tag,MPI_COMM_WORLD,reqs_+5);
   MPI_Isend(xes.data(0,0,2),nedge_[0],MPI_DOUBLE,iedge_[2],tag,MPI_COMM_WORLD,reqs_+6);
   MPI_Isend(xes.data(0,0,3),nedge_[0],MPI_DOUBLE,iedge_[3],tag,MPI_COMM_WORLD,reqs_+7);
-
-  MPI_Isend(xfs.data(0,0,0,0,0),nface_[0],MPI_DOUBLE,iface_[0],tag,MPI_COMM_WORLD,reqs_+8);
-  MPI_Isend(xfs.data(0,0,0,0,1),nface_[0],MPI_DOUBLE,iface_[1],tag,MPI_COMM_WORLD,reqs_+9);
   MPI_Isend(yes.data(0,0,0),nedge_[1],MPI_DOUBLE,iedge_[4],tag,MPI_COMM_WORLD,reqs_+10);
   MPI_Isend(yes.data(0,0,1),nedge_[1],MPI_DOUBLE,iedge_[5],tag,MPI_COMM_WORLD,reqs_+11);
   MPI_Isend(yes.data(0,0,2),nedge_[1],MPI_DOUBLE,iedge_[6],tag,MPI_COMM_WORLD,reqs_+12);
   MPI_Isend(yes.data(0,0,3),nedge_[1],MPI_DOUBLE,iedge_[7],tag,MPI_COMM_WORLD,reqs_+13);
-  MPI_Isend(zes.data(0,0,0),nedge_[2],MPI_DOUBLE,iedge_[8],tag,MPI_COMM_WORLD,reqs_+14);
-  MPI_Isend(zes.data(0,0,1),nedge_[2],MPI_DOUBLE,iedge_[9],tag,MPI_COMM_WORLD,reqs_+15);
-  MPI_Isend(zes.data(0,0,2),nedge_[2],MPI_DOUBLE,iedge_[10],tag,MPI_COMM_WORLD,reqs_+16);
-  MPI_Isend(zes.data(0,0,3),nedge_[2],MPI_DOUBLE,iedge_[11],tag,MPI_COMM_WORLD,reqs_+17);
   MPI_Isend(corners.data(0,0),1,MPI_DOUBLE,icorner_[0],tag,MPI_COMM_WORLD,reqs_+18);
   MPI_Isend(corners.data(0,1),1,MPI_DOUBLE,icorner_[1],tag,MPI_COMM_WORLD,reqs_+19);
   MPI_Isend(corners.data(0,2),1,MPI_DOUBLE,icorner_[2],tag,MPI_COMM_WORLD,reqs_+20);
@@ -412,8 +331,18 @@ void Faces::share(Double6D &u, const bool compute)
   MPI_Isend(corners.data(0,6),1,MPI_DOUBLE,icorner_[6],tag,MPI_COMM_WORLD,reqs_+24);
   MPI_Isend(corners.data(0,7),1,MPI_DOUBLE,icorner_[7],tag,MPI_COMM_WORLD,reqs_+25);
 
-  // compute faces, edges, and corners
- 
+  CHECK(gpuStreamSynchronize(stream_[1]));
+  MPI_Isend(yfs.data(0,0,0,0,0),nface_[1],MPI_DOUBLE,iface_[2],tag,MPI_COMM_WORLD,reqs_+2);
+  MPI_Isend(yfs.data(0,0,0,0,1),nface_[1],MPI_DOUBLE,iface_[3],tag,MPI_COMM_WORLD,reqs_+3);
+  MPI_Isend(zes.data(0,0,0),nedge_[2],MPI_DOUBLE,iedge_[8],tag,MPI_COMM_WORLD,reqs_+14);
+  MPI_Isend(zes.data(0,0,1),nedge_[2],MPI_DOUBLE,iedge_[9],tag,MPI_COMM_WORLD,reqs_+15);
+  MPI_Isend(zes.data(0,0,2),nedge_[2],MPI_DOUBLE,iedge_[10],tag,MPI_COMM_WORLD,reqs_+16);
+  MPI_Isend(zes.data(0,0,3),nedge_[2],MPI_DOUBLE,iedge_[11],tag,MPI_COMM_WORLD,reqs_+17);
+
+  CHECK(gpuStreamSynchronize(stream_[2]));
+  MPI_Isend(xfs.data(0,0,0,0,0),nface_[0],MPI_DOUBLE,iface_[0],tag,MPI_COMM_WORLD,reqs_+8);
+  MPI_Isend(xfs.data(0,0,0,0,1),nface_[0],MPI_DOUBLE,iface_[1],tag,MPI_COMM_WORLD,reqs_+9);
+
   MPI_Waitall(2,reqr_,MPI_STATUSES_IGNORE);
 
   gpuFor({nm1},{nm1},{mx},{my},GPU_LAMBDA(const int ix, const int iy, const int jx, const int jy) {
@@ -474,7 +403,7 @@ void Faces::share(Double6D &u, const bool compute)
       u(ix,0,iz,jx,0,jz) += yfr(ix,iz,jx,jz,0);
       u(ix,nm1,iz,jx,mym1,jz) += yfr(ix,iz,jx,jz,1);
     }
-  },stream_[0]);
+  },stream_[1]);
 
   MPI_Waitall(18,reqr_+8,MPI_STATUSES_IGNORE);
 
@@ -535,11 +464,10 @@ void Faces::share(Double6D &u, const bool compute)
       u(0,iy,iz,0,jy,jz) += xfr(iy,iz,jy,jz,0);
       u(nm1,iy,iz,mxm1,jy,jz) += xfr(iy,iz,jy,jz,1);
     }
-  },stream_[0]);
+  },stream_[2]);
 
   // finish sends
 
   MPI_Waitall(26,reqs_,MPI_STATUSES_IGNORE);
-  CHECK(gpuStreamSynchronize(stream_[1]));
-  CHECK(gpuStreamSynchronize(stream_[0]));
+  CHECK(gpuDeviceSynchronize());
 }

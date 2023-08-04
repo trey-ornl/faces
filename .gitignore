@@ -2,6 +2,8 @@
 *.o
 core
 frontier-faces*
+gpu/Faces.cc
+gpu/Faces.h
 MPICH_RANK_ORDER
 pinoak-faces*
 slurm-*.out
