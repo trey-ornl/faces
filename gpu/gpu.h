@@ -70,7 +70,11 @@ static void checkGPU(const gpuError_t err, const char *const file, const int lin
 
 #if defined(__HIPCC__) || defined(__CUDACC__)
 
-static constexpr int gpuMaxThreads = 1024; //WARPSIZE;
+#ifndef MAXTHREADS
+#define MAXTHREADS WARPSIZE
+#endif
+
+static constexpr int gpuMaxThreads = MAXTHREADS;
 static constexpr int gpuMinThreads = WARPSIZE;
 
 template <typename F>
