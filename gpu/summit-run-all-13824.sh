@@ -1,8 +1,6 @@
 #!/bin/bash
 #BSUB -W 29
-#BSUB -u trey.white@hpe.com
 ##BSUB -q debug
-#BSUB -P VEN114
 #BSUB -J summit-13824
 #BSUB -nnodes 2304
 #BSUB -q debug

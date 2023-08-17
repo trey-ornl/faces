@@ -1,7 +1,6 @@
 #!/bin/bash
 #BSUB -W 50
 ##BSUB -q debug
-#BSUB -P VEN114
 #BSUB -J summit-1
 #BSUB -nnodes 1
 module load nvphc

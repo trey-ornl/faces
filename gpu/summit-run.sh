@@ -1,6 +1,5 @@
 #!/bin/bash
 #BSUB -W 5 
-#BSUB -P VEN114
 #BSUB -J summit-faces
 #BSUB -nnodes 1
 module load nvphc

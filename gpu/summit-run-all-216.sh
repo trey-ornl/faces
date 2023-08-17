@@ -1,8 +1,6 @@
 #!/bin/bash
 #BSUB -W 14
-#BSUB -u trey.white@hpe.com
 ##BSUB -q debug
-#BSUB -P VEN114
 #BSUB -J summit-216
 #BSUB -nnodes 36
 module load nvphc
