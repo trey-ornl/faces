@@ -10,9 +10,10 @@ export OMP_NUM_THREADS=7
 export MPICH_OFI_NIC_POLICY=GPU
 export MPICH_GPU_SUPPORT_ENABLED=1
 export MPICH_VERSION_DISPLAY=1
+export MPICH_RANK_REORDER_FILE="MPICH_RANK_ORDER.${SLURM_JOB_ID}"
 if [ ${NODES} -gt 1 ]
 then
-  grid_order -R -c 2,2,2 -g $1,$2,$3 | tee MPICH_RANK_ORDER
+  grid_order -C -c 2,2,2 -g $1,$2,$3 | tee ${MPICH_RANK_REORDER_FILE}
 fi
 
 date

@@ -8,4 +8,6 @@ MPICH_RANK_ORDER
 pinoak-faces*
 slurm-*.out
 summit-faces*
+tee*
 typescript
+MPICH_RANK_ORDER*
