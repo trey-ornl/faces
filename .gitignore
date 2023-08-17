@@ -4,7 +4,7 @@ core
 frontier-faces*
 gpu/Faces.cc
 gpu/Faces.h
-MPICH_RANK_ORDER
+gpu/summit-[0-9]*.[0-9]*
 pinoak-faces*
 slurm-*.out
 summit-faces*
