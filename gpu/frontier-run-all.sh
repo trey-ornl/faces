@@ -1,7 +1,5 @@
 #!/bin/bash
-module load craype-accel-amd-gfx90a
-module load rocm
-module -t list
+source frontier-env
 export LD_LIBRARY_PATH="${CRAY_LD_LIBRARY_PATH}:${LD_LIBRARY_PATH}"
 set -x
 TASKS=$(( $1 * $2 * $3 ))
@@ -24,14 +22,14 @@ do
   sleep 1
   echo "$1 $2 $3 15 14 13 12 10 10 100" | srun --exclusive -K -u -c ${OMP_NUM_THREADS} --gpus-per-task=1 --gpu-bind=closest -N ${NODES} -n ${TASKS} ${EXE}
   sleep 1
-  echo "$1 $2 $3 105 104 103 12 3 1 10" | srun --exclusive -K -u -c ${OMP_NUM_THREADS} --gpus-per-task=1 --gpu-bind=closest -N ${NODES} -n ${TASKS} ${EXE}
+  echo "$1 $2 $3 95 94 93 12 3 1 10" | srun --exclusive -K -u -c ${OMP_NUM_THREADS} --gpus-per-task=1 --gpu-bind=closest -N ${NODES} -n ${TASKS} ${EXE}
   if [ ${NODES} -gt 1 ]
   then
     export MPICH_RANK_REORDER_METHOD=3
     sleep 1
     echo "$1 $2 $3 15 14 13 12 10 10 100" | srun --exclusive -K -u -c ${OMP_NUM_THREADS} --gpus-per-task=1 --gpu-bind=closest -N ${NODES} -n ${TASKS} ${EXE}
     sleep 1
-    echo "$1 $2 $3 105 104 103 12 3 1 10" | srun --exclusive -K -u -c ${OMP_NUM_THREADS} --gpus-per-task=1 --gpu-bind=closest -N ${NODES} -n ${TASKS} ${EXE}
+    echo "$1 $2 $3 95 94 93 12 3 1 10" | srun --exclusive -K -u -c ${OMP_NUM_THREADS} --gpus-per-task=1 --gpu-bind=closest -N ${NODES} -n ${TASKS} ${EXE}
   fi
 done
 date

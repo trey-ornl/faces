@@ -1,6 +1,5 @@
 #!/bin/bash
-module load craype-accel-amd-gfx90a
-module load rocm
+source frontier-env
 module -t list
 set -x
 export LD_LIBRARY_PATH="${CRAY_LD_LIBRARY_PATH}:${LD_LIBRARY_PATH}"
@@ -26,8 +25,8 @@ rm -f frontier-faces*
 MAXTHREADS=256
 export CPPFLAGS="-DMAXTHREADS=${MAXTHREADS}"
 build ${MAXTHREADS} v-6-messages-basic
-export CPPFLAGS="-DMAXTHREADS=${MAXTHREADS} -DFUSE_Y"
-build ${MAXTHREADS} v-6-messages-overlap-fusable -Y
+export CPPFLAGS="-DMAXTHREADS=${MAXTHREADS}"
+build ${MAXTHREADS} v-6-messages-overlap-fusable
 
 MAXTHREADS=64
 export CPPFLAGS="-DMAXTHREADS=${MAXTHREADS} -DFUSE_INNER"

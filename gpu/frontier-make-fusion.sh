@@ -1,6 +1,5 @@
 #!/bin/bash
-module load craype-accel-amd-gfx90a
-module load rocm
+source frontier-env
 module -t list
 set -x
 export LD_LIBRARY_PATH="${CRAY_LD_LIBRARY_PATH}:${LD_LIBRARY_PATH}"
