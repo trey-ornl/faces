@@ -1,6 +1,6 @@
 #!/bin/bash
-#BSUB -W 50
-##BSUB -q debug
+#BSUB -W 90
+#BSUB -q debug
 #BSUB -J summit-1
 #BSUB -nnodes 1
 module load nvphc
@@ -15,8 +15,8 @@ for EXE in $(ls summit-faces*)
 do
   echo "Running ${EXE}"
   sleep 1
-  echo "$X $Y $Z 15 14 13 12 10 10 100" | jsrun --smpiargs="-gpu" -n${TASKS} -c7 -EOMP_NUM_THREADS=7 -g1 ${PWD}/${EXE}
+  echo "$X $Y $Z 15 14 13 12 10 10 100" | jsrun --smpiargs="-gpu" -n${TASKS} -r1 -c7 -EOMP_NUM_THREADS=7 -g1 ${PWD}/${EXE}
   sleep 1
-  echo "$X $Y $Z 105 104 103 12 3 1 10" | jsrun --smpiargs="-gpu" -n${TASKS} -c7 -EOMP_NUM_THREADS=7 -g1  ${PWD}/${EXE}
+  echo "$X $Y $Z 95 94 93 12 3 1 10" | jsrun --smpiargs="-gpu" -n${TASKS} -r1 -c7 -EOMP_NUM_THREADS=7 -g1  ${PWD}/${EXE}
 done
 date
